@@ -1,0 +1,318 @@
+# 增材制造领域关键词库
+# Additive Manufacturing Domain Keywords Library
+# 用于LCA-LLM系统的语义搜索和数据提取
+
+# 金属粉末材料 (Metal Powder Materials)
+metal_powders:
+  titanium_alloys:
+    - "Ti-6Al-4V"
+    - "Ti-6Al-4V powder"
+    - "titanium powder"
+    - "titanium alloy"
+    - "Ti64"
+    - "Grade 5 titanium"
+    - "Ti-6-4"
+    - "titanium dioxide"
+    - "CP titanium"
+    - "commercially pure titanium"
+    
+  aluminum_alloys:
+    - "AlSi10Mg"
+    - "aluminum powder"
+    - "aluminium powder"
+    - "Al-Si alloy"
+    - "aluminum alloy"
+    - "AlSi12"
+    - "AlSi7Mg"
+    - "6061 aluminum"
+    - "7075 aluminum"
+    
+  steel_alloys:
+    - "316L stainless steel"
+    - "stainless steel powder"
+    - "maraging steel"
+    - "tool steel"
+    - "carbon steel"
+    - "17-4 PH steel"
+    - "15-5 PH steel"
+    - "H13 tool steel"
+    - "M2 tool steel"
+    
+  nickel_alloys:
+    - "Inconel 718"
+    - "Inconel 625"
+    - "Hastelloy X"
+    - "nickel powder"
+    - "superalloy"
+    - "nickel-based alloy"
+    - "Rene 41"
+    - "Waspaloy"
+    
+  copper_alloys:
+    - "copper powder"
+    - "bronze powder"
+    - "brass powder"
+    - "CuSn10"
+    - "copper alloy"
+    
+  other_metals:
+    - "cobalt chrome"
+    - "CoCr alloy"
+    - "tungsten powder"
+    - "molybdenum powder"
+    - "tantalum powder"
+    - "gold powder"
+    - "silver powder"
+    - "platinum powder"
+
+# 聚合物材料 (Polymer Materials)
+polymer_materials:
+  thermoplastics:
+    - "PLA"
+    - "polylactic acid"
+    - "ABS"
+    - "acrylonitrile butadiene styrene"
+    - "PETG"
+    - "polyethylene terephthalate glycol"
+    - "TPU"
+    - "thermoplastic polyurethane"
+    - "nylon"
+    - "PA12"
+    - "polyamide"
+    - "PC"
+    - "polycarbonate"
+    - "PEI"
+    - "polyetherimide"
+    - "PEEK"
+    - "polyetheretherketone"
+    - "PPS"
+    - "polyphenylene sulfide"
+    
+  photopolymers:
+    - "resin"
+    - "photopolymer"
+    - "UV resin"
+    - "dental resin"
+    - "biocompatible resin"
+    - "tough resin"
+    - "flexible resin"
+    - "clear resin"
+    - "castable resin"
+
+# 陶瓷材料 (Ceramic Materials)
+ceramic_materials:
+  - "alumina"
+  - "aluminum oxide"
+  - "zirconia"
+  - "silicon carbide"
+  - "silicon nitride"
+  - "hydroxyapatite"
+  - "bioactive glass"
+  - "ceramic powder"
+  - "technical ceramics"
+
+# 保护气体 (Protective Gases)
+protective_gases:
+  - "argon"
+  - "argon gas"
+  - "nitrogen"
+  - "nitrogen gas"
+  - "helium"
+  - "helium gas"
+  - "inert gas"
+  - "shielding gas"
+  - "protective atmosphere"
+  - "gas flow"
+  - "gas consumption"
+
+# 能源消耗 (Energy Consumption)
+energy_consumption:
+  electrical:
+    - "electrical energy"
+    - "electricity consumption"
+    - "power consumption"
+    - "energy usage"
+    - "electrical power"
+    - "laser power"
+    - "heater power"
+    - "motor power"
+    - "pump power"
+    - "fan power"
+    
+  heating:
+    - "heating energy"
+    - "thermal energy"
+    - "preheating"
+    - "bed heating"
+    - "chamber heating"
+    - "build chamber temperature"
+    - "powder bed temperature"
+
+# 增材制造工艺 (AM Processes)
+am_processes:
+  powder_bed:
+    - "SLS"
+    - "selective laser sintering"
+    - "SLM"
+    - "selective laser melting"
+    - "DMLS"
+    - "direct metal laser sintering"
+    - "EBM"
+    - "electron beam melting"
+    - "powder bed fusion"
+    - "L-PBF"
+    - "laser powder bed fusion"
+    
+  directed_energy:
+    - "DED"
+    - "directed energy deposition"
+    - "LENS"
+    - "laser engineered net shaping"
+    - "DMD"
+    - "direct metal deposition"
+    - "WAAM"
+    - "wire arc additive manufacturing"
+    
+  material_extrusion:
+    - "FDM"
+    - "fused deposition modeling"
+    - "FFF"
+    - "fused filament fabrication"
+    - "material extrusion"
+    - "extrusion"
+    
+  vat_photopolymerization:
+    - "SLA"
+    - "stereolithography"
+    - "DLP"
+    - "digital light processing"
+    - "LCD"
+    - "liquid crystal display"
+    - "photopolymerization"
+    
+  material_jetting:
+    - "PolyJet"
+    - "MultiJet"
+    - "material jetting"
+    - "inkjet printing"
+    
+  binder_jetting:
+    - "binder jetting"
+    - "3DP"
+    - "three dimensional printing"
+
+# 设备和机器 (Equipment and Machines)
+equipment:
+  machines:
+    - "3D printer"
+    - "additive manufacturing machine"
+    - "AM machine"
+    - "build platform"
+    - "print bed"
+    - "laser system"
+    - "electron beam"
+    - "extruder"
+    - "hot end"
+    - "nozzle"
+    - "powder spreader"
+    - "recoater"
+    - "build chamber"
+    
+  consumables:
+    - "build plate"
+    - "support material"
+    - "support structure"
+    - "adhesion layer"
+    - "release agent"
+    - "cleaning solution"
+    - "filter"
+    - "wear parts"
+
+# 后处理 (Post-processing)
+post_processing:
+  mechanical:
+    - "support removal"
+    - "machining"
+    - "grinding"
+    - "polishing"
+    - "sandblasting"
+    - "shot peening"
+    - "surface finishing"
+    - "drilling"
+    - "milling"
+    - "turning"
+    
+  thermal:
+    - "heat treatment"
+    - "annealing"
+    - "stress relief"
+    - "sintering"
+    - "curing"
+    - "post-curing"
+    
+  chemical:
+    - "cleaning"
+    - "degreasing"
+    - "etching"
+    - "chemical polishing"
+    - "washing"
+    - "solvent cleaning"
+
+# 废料和副产品 (Waste and By-products)
+waste_byproducts:
+  - "waste powder"
+  - "unused powder"
+  - "powder recycling"
+  - "support material waste"
+  - "failed prints"
+  - "scrap material"
+  - "metal chips"
+  - "cutting fluid"
+  - "coolant"
+  - "emissions"
+  - "fumes"
+  - "particulates"
+  - "volatile organic compounds"
+  - "VOCs"
+
+# 质量控制 (Quality Control)
+quality_control:
+  - "dimensional accuracy"
+  - "surface roughness"
+  - "porosity"
+  - "density"
+  - "mechanical properties"
+  - "tensile strength"
+  - "yield strength"
+  - "fatigue life"
+  - "hardness"
+  - "microstructure"
+  - "defects"
+  - "inspection"
+  - "testing"
+  - "certification"
+
+# 运输与包装 (Transportation & Packaging)
+transport_and_packaging:
+  - "transport"
+  - "logistics"
+  - "distance"
+  - "packaging material"
+  - "cardboard"
+  - "plastic film"
+  - "wooden pallet"
+
+# 信号词 (Signal Words) - 表明附近有可提取的量化数据
+signal_words:
+  - "consumption"
+  - "usage"
+  - "input"
+  - "output"
+  - "flow rate"
+  - "efficiency"
+  - "yield"
+  - "loss"
+  - "scrap rate"
+  - "recycling rate"
+  - "emissions"
+  - "waste generation"

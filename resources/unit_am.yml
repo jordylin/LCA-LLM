@@ -1,0 +1,157 @@
+# 增材制造专用单位库
+# Additive Manufacturing Specialized Units Library
+# 针对增材制造LCA数据提取优化，去除不相关单位以提高unit_hits准确性
+
+# 质量单位 (Mass Units) - 材料消耗核心指标
+mass_units:
+  metric:
+    - "kg"
+    - "kilogram"
+    - "g"
+    - "gram"
+    - "mg"
+    - "milligram"
+    - "t"
+    - "tonne"
+    
+# 体积单位 (Volume Units) - 材料体积和打印体积
+volume_units:
+  metric:
+    - "L"
+    - "l"
+    - "liter"
+    - "mL"
+    - "ml"
+    - "milliliter"
+    - "m³"
+    - "m3"
+    - "cubic meter"
+    - "cm³"
+    - "cm3"
+    - "cubic centimeter"
+    - "mm³"
+    - "mm3"
+    - "cubic millimeter"
+
+# 能量单位 (Energy Units) - 打印能耗和加热能耗
+energy_units:
+  electrical:
+    - "kWh"
+    - "kilowatt hour"
+    - "kilowatt-hour"
+    - "Wh"
+    - "watt hour"
+    - "MWh"
+    - "megawatt hour"
+    
+  thermal:
+    - "J"
+    - "joule"
+    - "kJ"
+    - "kilojoule"
+    - "MJ"
+    - "megajoule"
+    - "GJ"
+    - "gigajoule"
+
+# 功率单位 (Power Units) - 设备功率
+power_units:
+  - "W"
+  - "watt"
+  - "kW"
+  - "kilowatt"
+  - "MW"
+  - "megawatt"
+
+# 长度单位 (Length Units) - 打印尺寸和层厚
+length_units:
+  metric:
+    - "m"
+    - "meter"
+    - "cm"
+    - "centimeter"
+    - "mm"
+    - "millimeter"
+    - "μm"
+    - "micrometer"
+    - "nm"
+    - "nanometer"
+
+# 面积单位 (Area Units) - 打印面积
+area_units:
+  - "m²"
+  - "m2"
+  - "square meter"
+  - "cm²"
+  - "cm2"
+  - "square centimeter"
+  - "mm²"
+  - "mm2"
+  - "square millimeter"
+
+# 时间单位 (Time Units) - 打印时间和工艺时间
+time_units:
+  - "s"
+  - "sec"
+  - "second"
+  - "min"
+  - "minute"
+  - "h"
+  - "hr"
+  - "hour"
+  - "day"
+
+# 温度单位 (Temperature Units) - 打印温度和熔融温度
+temperature_units:
+  - "°C"
+  - "℃"
+  - "Celsius"
+  - "°F"
+  - "Fahrenheit"
+  - "K"
+  - "Kelvin"
+
+# 密度单位 (Density Units) - 材料密度
+density_units:
+  - "kg/m³"
+  - "kg/m3"
+  - "g/cm³"
+  - "g/cm3"
+  - "g/mL"
+  - "kg/L"
+
+# 速度单位 (Speed Units) - 打印速度
+speed_units:
+  - "mm/s"
+  - "mm/min"
+  - "cm/s"
+  - "m/s"
+  - "m/min"
+
+# 流量单位 (Flow Rate Units) - 材料挤出速度
+flow_rate_units:
+  - "g/min"
+  - "kg/h"
+  - "mL/min"
+  - "L/h"
+  - "mm³/s"
+  - "cm³/min"
+
+# 压力单位 (Pressure Units) - 挤出压力和腔体压力
+pressure_units:
+  - "Pa"
+  - "pascal"
+  - "kPa"
+  - "kilopascal"
+  - "MPa"
+  - "megapascal"
+  - "bar"
+  - "psi"
+
+# 电气单位 (Electrical Units) - 设备电参数
+electrical_units:
+  - "V"
+  - "volt"
+  - "A"
+  - "amp"
+  - "ampere"

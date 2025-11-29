@@ -1,0 +1,37 @@
+# 环境文件夹（虚拟环境）
+lcaLLM/
+
+# 模型文件夹（大文件）
+models/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 环境变量
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+logs/
+
+# 数据集（可选，根据需要调整）
+# dataset/
+
+# 临时文件
+*.tmp
+.DS_Store

@@ -1,0 +1,172 @@
+# ===========================================================
+#  Energy Units —— 能耗类，用于电、热、燃料、蒸汽等
+# ===========================================================
+energy_units:
+  - unit: "J"
+    display_name: "J (joule)"
+    category: "Energy"
+  - unit: "kJ"
+    display_name: "kJ (kilojoule)"
+    category: "Energy"
+  - unit: "MJ"
+    display_name: "MJ (megajoule)"
+    category: "Energy"
+  - unit: "GJ"
+    display_name: "GJ (gigajoule)"
+    category: "Energy"
+  - unit: "Wh"
+    display_name: "Wh (watt-hour)"
+    category: "Energy"
+  - unit: "kWh"
+    display_name: "kWh (kilowatt-hour)"
+    category: "Energy"
+  - unit: "MWh"
+    display_name: "MWh (megawatt-hour)"
+    category: "Energy"
+  - unit: "cal"
+    display_name: "cal (calorie)"
+    category: "Energy"
+  - unit: "kcal"
+    display_name: "kcal (kilocalorie)"
+    category: "Energy"
+  - unit: "BTU"
+    display_name: "BTU (British thermal unit)"
+    category: "Energy"
+  - unit: "toe"
+    display_name: "toe (tonne of oil equivalent)"
+    category: "Energy"
+
+# ===========================================================
+#  Power Units —— 功率类，用于电机、激光、泵等瞬时功率
+# ===========================================================
+power_units:
+  - unit: "W"
+    display_name: "W (watt)"
+    category: "Power"
+  - unit: "kW"
+    display_name: "kW (kilowatt)"
+    category: "Power"
+  - unit: "MW"
+    display_name: "MW (megawatt)"
+    category: "Power"
+  - unit: "hp"
+    display_name: "hp (horsepower)"
+    category: "Power"
+
+# ===========================================================
+#  Time Units —— 时间类，用于工艺时间、运行时长等
+# ===========================================================
+time_units:
+  - unit: "s"
+    display_name: "s (second)"
+    category: "Time"
+  - unit: "min"
+    display_name: "min (minute)"
+    category: "Time"
+  - unit: "h"
+    display_name: "h (hour)"
+    category: "Time"
+
+# ===========================================================
+#  Mass Units —— 物耗/排放/废弃物等
+# ===========================================================
+mass_units:
+  - unit: "mg"
+    display_name: "mg (milligram)"
+    category: "Mass"
+  - unit: "g"
+    display_name: "g (gram)"
+    category: "Mass"
+  - unit: "kg"
+    display_name: "kg (kilogram)"
+    category: "Mass"
+  - unit: "t"
+    display_name: "t (tonne)"
+    category: "Mass"
+  - unit: "Mt"
+    display_name: "Mt (megatonne)"
+    category: "Mass"
+  - unit: "lb"
+    display_name: "lb (pound)"
+    category: "Mass"
+  - unit: "oz"
+    display_name: "oz (ounce)"
+    category: "Mass"
+
+# ===========================================================
+#  Volume Units —— 液体、气体类（冷却水、气体、废水）
+# ===========================================================
+volume_units:
+  - unit: "mL"
+    display_name: "mL (millilitre)"
+    category: "Volume"
+  - unit: "L"
+    display_name: "L (litre)"
+    category: "Volume"
+  - unit: "m³"
+    display_name: "m³ (cubic metre)"
+    category: "Volume"
+  - unit: "cm³"
+    display_name: "cm³ (cubic centimetre)"
+    category: "Volume"
+  - unit: "ft³"
+    display_name: "ft³ (cubic foot)"
+    category: "Volume"
+  - unit: "gal"
+    display_name: "gal (gallon)"
+    category: "Volume"
+  - unit: "Nm³"
+    display_name: "Nm³ (normal cubic metre)"
+    category: "Volume"
+
+# ===========================================================
+#  Length & Area Units —— 加工路径、面积、涂层厚度
+# ===========================================================
+length_units:
+  - unit: "mm"
+    display_name: "mm (millimetre)"
+    category: "Length"
+  - unit: "cm"
+    display_name: "cm (centimetre)"
+    category: "Length"
+  - unit: "m"
+    display_name: "m (metre)"
+    category: "Length"
+  - unit: "km"
+    display_name: "km (kilometre)"
+    category: "Length"
+  - unit: "inch"
+    display_name: "inch (inch)"
+    category: "Length"
+  - unit: "ft"
+    display_name: "ft (foot)"
+    category: "Length"
+
+area_units:
+  - unit: "mm²"
+    display_name: "mm² (square millimetre)"
+    category: "Area"
+  - unit: "cm²"
+    display_name: "cm² (square centimetre)"
+    category: "Area"
+  - unit: "m²"
+    display_name: "m² (square metre)"
+    category: "Area"
+  - unit: "km²"
+    display_name: "km² (square kilometre)"
+    category: "Area"
+
+# ===========================================================
+# Unit Library with Standardization Mapping
+# ===========================================================
+count: # 新增的类别
+  item: # 这是我们推荐的标准单位 (来自于 'piece')
+    name: Piece / Item
+    variants:
+      - "piece"
+      - "pieces"
+      - "item"
+      - "items"
+      - "unit"
+      - "units"
+      - "ea" # 许多库存系统使用 'each' 的缩写

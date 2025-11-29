@@ -1,0 +1,4 @@
+我看了后有以下困惑：
+1）当前是reasoning的生成是按照固定句式的吗？然后CAMEL AI的作用仅仅是辅助填充里面的内容吗？那这样岂不是会过拟合？而且也容易出现一些对不上的场景，例如‘Continuous Extraction’里面的‘"This table also contains {category}. Recording {value} {unit} of {name}."’，那万一不是从table里面连续extract，而是从文本里面继续extract呢？
+2）当前的“Smart Skip + Search”，是按照关键词类别映射。我感觉很不靠谱。万一有重复使用的名称，例如kWh，kg等可能在多个场景下出现，那岂不是会造成混乱？而且，每种类别都可能需要smart skip，不仅仅是当前存在的这些。所以我们得需要一个新的、更合适的方法。我想知道，当前CAMEL AI里面的deepseek，在构建reasoning数据的时候，究竟是以一个什么状态处理这些数据的呢，他在构建的时候是否能回忆起前面构建的数据，看过的内容，并辅助生成下个阶段的reasoning？因为在我看来，当前的实现貌似是根据关键词信息来独立生成的。
+3）两段式结构的reasoning内容生成：【评价前一个搜索结果（为什么 skip）；说明接下来的动作（要搜索什么）】貌似还没实现。其次，貌似其他部分场景也需要。这个我们后续讨论。
