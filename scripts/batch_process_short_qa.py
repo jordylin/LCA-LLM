@@ -222,9 +222,9 @@ class ShortQABatchProcessor:
         mongodb_manager.initialize()
         db = mongodb_manager.get_database()
         
-        # 获取所有 sessions
-        sessions = list(db.sessions.find({}, {"session_id": 1}))
-        return [s["session_id"] for s in sessions]
+        # 🔥 修复：从 lca_actions 集合获取所有不同的 session_id
+        session_ids = db.lca_actions.distinct("session_id")
+        return session_ids
 
 
 def main():

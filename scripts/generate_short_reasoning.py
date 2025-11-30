@@ -329,7 +329,41 @@ Generate ONE natural question:"""
             previous_messages = messages[:i]
             
             # 🔥 处理最终回复
+            # 🔥 NEW: 如果 content 已经存在（QA 场景），跳过 final response 生成
             if is_final_response:
+                existing_content = msg.get("content", "").strip()
+                if existing_content:
+                    # QA 场景：已有具体答案，只生成 reasoning
+                    try:
+                        from reasoning_helpers import build_conversation_history
+                        history_text = build_conversation_history(previous_messages)
+                        
+                        prompt = f"""You have answered a question about LCI data. Generate your internal reasoning explaining how you found this information.
+
+## Conversation So Far:
+{history_text}
+
+## Your Answer:
+{existing_content}
+
+Generate ONLY your internal reasoning (first person, natural):"""
+                        
+                        user_msg = BaseMessage.make_user_message(
+                            role_name="User",
+                            content=prompt
+                        )
+                        
+                        response = self.reasoning_agent.step(user_msg)
+                        reasoning = response.msg.content.strip()
+                        reasoning = reasoning.replace("<think>", "").replace("</think>", "").strip()
+                        
+                        msg["reasoning_content"] = reasoning
+                        print(f"  ✓ 生成 QA reasoning（保留原答案）")
+                        
+                    except Exception as e:
+                        print(f"  ⚠️  生成 QA reasoning 失败: {e}")
+                        msg["reasoning_content"] = "[生成失败]"
+                    continue
                 # 让 agent 生成总结性回复
                 try:
                     # 构建总结 prompt

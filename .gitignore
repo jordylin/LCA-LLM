@@ -4,6 +4,12 @@ lcaLLM/
 # 模型文件夹（大文件）
 models/
 
+# 数据集文件夹
+dataset/
+
+# 上下文文件夹
+context_files/
+
 # Python 缓存
 __pycache__/
 *.py[cod]
@@ -28,9 +34,6 @@ ENV/
 # 日志文件
 *.log
 logs/
-
-# 数据集（可选，根据需要调整）
-# dataset/
 
 # 临时文件
 *.tmp
