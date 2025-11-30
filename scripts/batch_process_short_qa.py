@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """
-短对话 QA 场景批量处理脚本
+短对话 QA 场景批量处理脚本（v3.0）
 
-功能：
-1. 批量导出 QA 场景的短对话数据
-2. 使用 CAMEL AI 生成 user content 和 reasoning
-3. 每个 session 一个文件
-4. 清晰的文件命名（qa_001, qa_002, ...）
+最终架构（完全复用 Extract 流程）：
+1. 导出（使用 export_training_data.py，保留 record）
+2. 改进 name/note（使用 improve_name_note_with_camel.py）
+3. 生成 reasoning + QA 转换（使用 generate_short_reasoning.py --convert-to-qa）
+
+核心优势：
+- ✅ 完全复用 Extract 流程，仅在输出时转换格式
+- ✅ CAMEL AI 生成时看到 improved 后的完整对话
+- ✅ Improve 步骤有用，不会被删除
+- ✅ 与 Extract 使用相同的生成逻辑，质量一致
 
 使用示例：
     # 处理所有 sessions
@@ -21,8 +26,8 @@
       --api-key "sk-xxx"
 
 作者：AI Assistant
-版本：v1.0
-日期：2025-11-29
+版本：v3.0
+日期：2025-11-30
 """
 
 import os
@@ -112,7 +117,7 @@ class ShortQABatchProcessor:
     
     def export_session(self, session_id: str, qa_name: str) -> bool:
         """
-        导出单个 session
+        导出单个 session（使用 export_training_data.py）
         
         Args:
             session_id: Session ID
@@ -124,8 +129,8 @@ class ShortQABatchProcessor:
         output_file = self.output_dir / f"{qa_name}_exported.json"
         
         cmd = [
-            "python", "scripts/export_short_qa_data.py",
-            "--session-ids", session_id,
+            "python", "scripts/export_training_data.py",
+            "--session-id", session_id,
             "--output", str(output_file)
         ]
         
@@ -137,9 +142,9 @@ class ShortQABatchProcessor:
             self._log(f"❌ 导出失败: {qa_name}\n{e.stderr}", "ERROR")
             return False
     
-    def generate_reasoning(self, qa_name: str, api_key: str) -> bool:
+    def improve_name_note(self, qa_name: str, api_key: str) -> bool:
         """
-        生成 reasoning 和 user content
+        改进 name 和 note（使用 improve_name_note_with_camel.py）
         
         Args:
             qa_name: QA 简短名称
@@ -149,13 +154,43 @@ class ShortQABatchProcessor:
             是否成功
         """
         input_file = self.output_dir / f"{qa_name}_exported.json"
+        output_file = self.output_dir / f"{qa_name}_improved.json"
+        
+        cmd = [
+            "python", "scripts/improve_name_note_with_camel.py",
+            "--input", str(input_file),
+            "--output", str(output_file),
+            "--api-key", api_key
+        ]
+        
+        try:
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            self._log(f"✅ 改进成功: {qa_name}", "SUCCESS")
+            return True
+        except subprocess.CalledProcessError as e:
+            self._log(f"❌ 改进失败: {qa_name}\n{e.stderr}", "ERROR")
+            return False
+    
+    def generate_reasoning_and_convert(self, qa_name: str, api_key: str) -> bool:
+        """
+        生成 reasoning 并转换为 QA 格式（使用 generate_short_reasoning.py --convert-to-qa）
+        
+        Args:
+            qa_name: QA 简短名称
+            api_key: DeepSeek API Key
+            
+        Returns:
+            是否成功
+        """
+        input_file = self.output_dir / f"{qa_name}_improved.json"
         output_file = self.output_dir / f"{qa_name}_complete.json"
         
         cmd = [
             "python", "scripts/generate_short_reasoning.py",
             "--input", str(input_file),
             "--output", str(output_file),
-            "--api-key", api_key
+            "--api-key", api_key,
+            "--convert-to-qa"  # 🔥 关键参数：在输出时转换为 QA 格式
         ]
         
         try:
@@ -183,12 +218,16 @@ class ShortQABatchProcessor:
             
             self._log(f"\n[{i}/{len(session_ids)}] 处理 session: {session_id[:16]}...")
             
-            # 1. 导出
+            # 1. 导出（使用 export_training_data.py）
             if not self.export_session(session_id, qa_name):
                 continue
             
-            # 2. 生成 reasoning
-            if not self.generate_reasoning(qa_name, api_key):
+            # 2. 改进 name/note（使用 improve_name_note_with_camel.py）
+            if not self.improve_name_note(qa_name, api_key):
+                continue
+            
+            # 3. 生成 reasoning + QA 转换（使用 generate_short_reasoning.py --convert-to-qa）
+            if not self.generate_reasoning_and_convert(qa_name, api_key):
                 continue
             
             success_count += 1

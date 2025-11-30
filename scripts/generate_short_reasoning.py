@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """
-短对话 Reasoning 生成器 (v4.3)
+短对话 Reasoning 生成器 (v4.5)
 
 功能：
 1. 为短对话数据集生成 reasoning_content（使用 CAMEL AI）
 2. 生成自然的 user content（区分 QA 和 Extract 场景）
 3. 使用 Full 版本的 reasoning_helpers（完整上下文）
-4. 支持 final response 生成
+4. 支持 final response 生成（区分 QA/Extract）
+5. 支持 QA 格式转换（--convert-to-qa）
 
 改进：
+- v4.5: 修复 QA final response 生成，区分 QA/Extract prompt
+- v4.4: 添加 --convert-to-qa 参数，支持输出时格式转换
 - v4.3: 改进 QA 场景的 user content 生成，使用 CAMEL AI 生成自然问题
 - v4.2: 使用 CAMEL AI 生成自然的 user content，扫描所有 record 操作
-- v4.1: 修复 reasoning_content 错误添加到 user message 的 bug
-- v4.0: 简化 System Prompt，删除字符限制
-- v3.1: 修复 final response 生成，移除对 reasoning_helpers 的依赖
-- v3.0: 使用 CAMEL AI 生成 reasoning
 
 作者：AI Assistant
-日期：2025-11-29
+日期：2025-11-30
 """
 
 import json
@@ -47,7 +46,7 @@ from reasoning_helpers import (
 
 
 class ShortReasoningGenerator:
-    """短对话 Reasoning 生成器 v4.2（CAMEL AI 自然生成）"""
+    """短对话 Reasoning 生成器 v4.5（CAMEL AI 自然生成 + QA/Extract 区分）"""
     
     def __init__(self, model_name: str = "deepseek-chat", temperature: float = 1.0, api_key: str = None):
         """
@@ -90,14 +89,15 @@ class ShortReasoningGenerator:
         )
         
         print("\n" + "="*60)
-        print("短对话 Reasoning 生成器 (v4.3)")
+        print("短对话 Reasoning 生成器 (v4.5)")
         print("="*60)
         print("\n功能：")
         print("  1. 使用 CAMEL AI 生成自然的 user content")
         print("  2. 区分 QA（询问）和 Extract（提取）场景")
         print("  3. 使用 Full 版本的 reasoning_helpers")
+        print("  4. 支持 QA 格式转换（--convert-to-qa）")
         print("="*60 + "\n")
-        print(f"🚀 初始化短对话 Reasoning Generator v4.2（CAMEL AI 自然生成）...")
+        print(f"🚀 初始化短对话 Reasoning Generator v4.5...")
         print(f"💬 使用模型: {model_name}")
         print(f"🌡️  温度: {temperature}")
         print(f"📊 使用 Full 版本的 reasoning_helpers（完整上下文）")
@@ -239,7 +239,7 @@ Generate ONE natural request (15-30 words):"""
             prompt = f"""Generate a natural, conversational question asking about {topics_str} in a manufacturing process.
 
 Requirements:
-1. Use question format ("What...", "How much...", "Can you tell me...")
+1. Use question format 
 2. Natural and conversational tone
 3. DO NOT mention specific values or technical terms
 4. Keep it simple and direct (15-25 words)
@@ -297,12 +297,70 @@ Generate ONE natural question:"""
         
         return actions
     
-    def generate_reasoning_for_sample(self, sample: Dict) -> Dict:
+    def convert_to_qa_format(self, sample: Dict) -> Dict:
+        """
+        将 Extract 格式转换为 QA 格式（删除 record tool calls）
+        
+        仅在输出时转换，不影响 CAMEL AI 的生成过程
+        
+        Args:
+            sample: 包含 messages 的 sample
+            
+        Returns:
+            转换后的 sample（QA 格式）
+        """
+        messages = sample.get("messages", [])
+        converted_messages = []
+        skip_next_tool = False
+        
+        for i, msg in enumerate(messages):
+            if msg.get("role") == "assistant":
+                tool_calls = msg.get("tool_calls", [])
+                
+                if tool_calls:
+                    # 过滤掉 record 相关的 tool calls
+                    filtered_calls = []
+                    has_record = False
+                    
+                    for tc in tool_calls:
+                        tool_name = tc.get("name")
+                        if tool_name in ["record_process_flow", "define_lca_scope", "execute_calculation", "record_parameter"]:
+                            has_record = True
+                        else:
+                            filtered_calls.append(tc)
+                    
+                    if filtered_calls:
+                        # 保留非 record 的 tool calls
+                        msg_copy = msg.copy()
+                        msg_copy["tool_calls"] = filtered_calls
+                        converted_messages.append(msg_copy)
+                    elif has_record:
+                        # 全是 record，跳过这条消息和下一条 tool response
+                        skip_next_tool = True
+                        continue
+                else:
+                    # 没有 tool calls 的 assistant 消息（最终回复）
+                    converted_messages.append(msg.copy())
+            
+            elif msg.get("role") == "tool":
+                if skip_next_tool:
+                    skip_next_tool = False
+                    continue
+                else:
+                    converted_messages.append(msg.copy())
+            
+            else:
+                converted_messages.append(msg.copy())
+        
+        return {"messages": converted_messages}
+    
+    def generate_reasoning_for_sample(self, sample: Dict, is_qa_mode: bool = False) -> Dict:
         """
         为整个 sample 生成 reasoning（带记忆）
         
         Args:
             sample: 包含 messages 的 sample
+            is_qa_mode: 是否是 QA 模式（用于区分 final response 的生成）
             
         Returns:
             填充了 reasoning_content 的 sample
@@ -328,58 +386,48 @@ Generate ONE natural question:"""
             # 提取前面的对话历史
             previous_messages = messages[:i]
             
-            # 🔥 处理最终回复
-            # 🔥 NEW: 如果 content 已经存在（QA 场景），跳过 final response 生成
+            # 🔥 处理最终回复（区分 QA/Extract）
             if is_final_response:
-                existing_content = msg.get("content", "").strip()
-                if existing_content:
-                    # QA 场景：已有具体答案，只生成 reasoning
-                    try:
-                        from reasoning_helpers import build_conversation_history
-                        history_text = build_conversation_history(previous_messages)
-                        
-                        prompt = f"""You have answered a question about LCI data. Generate your internal reasoning explaining how you found this information.
-
-## Conversation So Far:
-{history_text}
-
-## Your Answer:
-{existing_content}
-
-Generate ONLY your internal reasoning (first person, natural):"""
-                        
-                        user_msg = BaseMessage.make_user_message(
-                            role_name="User",
-                            content=prompt
-                        )
-                        
-                        response = self.reasoning_agent.step(user_msg)
-                        reasoning = response.msg.content.strip()
-                        reasoning = reasoning.replace("<think>", "").replace("</think>", "").strip()
-                        
-                        msg["reasoning_content"] = reasoning
-                        print(f"  ✓ 生成 QA reasoning（保留原答案）")
-                        
-                    except Exception as e:
-                        print(f"  ⚠️  生成 QA reasoning 失败: {e}")
-                        msg["reasoning_content"] = "[生成失败]"
-                    continue
-                # 让 agent 生成总结性回复
                 try:
                     # 构建总结 prompt
                     from reasoning_helpers import build_conversation_history
                     history_text = build_conversation_history(previous_messages)
                     
-                    prompt = f"""You have completed a short data extraction task. Generate:
+                    # 🔥 使用 is_qa_mode 参数判断场景
+                    if not is_qa_mode:
+                        # Extract 场景：强调记录
+                        prompt = f"""You have completed a short data extraction task. Generate:
 1. **Reasoning** (internal thinking): Reflect on what you accomplished
 2. **Response** (user-facing): A natural confirmation message
+
+## Conversation So Far:
+{history_text}
 
 **Format**:
 [Your internal reasoning] ||| [Your response to user]
 
 **Remember**:
 - Reasoning: First person, natural
-- Response: Professional and natural
+- Response: Professional confirmation (mention "recorded" or "extracted")
+- Must include "|||" separator
+
+Generate your output:"""
+                    else:
+                        # QA 场景：强调回答
+                        prompt = f"""You have answered a user's question about LCI data. Generate:
+1. **Reasoning** (internal thinking): Explain how you found the answer
+2. **Response** (user-facing): A direct, informative answer with specific data
+
+## Conversation So Far:
+{history_text}
+
+**Format**:
+[Your internal reasoning] ||| [Your answer to user]
+
+**Remember**:
+- Reasoning: First person, explain your search and findings
+- Response: Direct answer with specific data (DO NOT mention "recording" or "extracting")
+- Focus on providing information, not on the process
 - Must include "|||" separator
 
 Generate your output:"""
@@ -446,20 +494,23 @@ Generate your output:"""
                 print(f"  ✓ 生成 reasoning: {reasoning[:80]}...")
                 
             except Exception as e:
-                print(f"  ⚠️  生成 reasoning 失败: {e}")
+                print(f"  ⚠️  生成 final response 失败: {e}")
                 msg["reasoning_content"] = "[生成失败]"
+                msg["content"] = "[生成失败]"
+                continue
         
         return sample
     
-    def process_file(self, input_path: str, output_path: str):
+    def process_file(self, input_path: str, output_path: str, convert_to_qa: bool = False):
         """
-        处理文件
+        处理整个文件
         
         Args:
             input_path: 输入文件路径
             output_path: 输出文件路径
+            convert_to_qa: 是否转换为 QA 格式（删除 record tool calls）
         """
-        print(f"\n📂 读取文件: {input_path}")
+        print(f"\n📂 读取输入文件: {input_path}")
         
         with open(input_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -491,7 +542,14 @@ Generate your output:"""
             
             # 2. 生成 reasoning（带记忆）
             print("\n🧠 生成 reasoning...")
-            sample = self.generate_reasoning_for_sample(sample)
+            # 🔥 传入 convert_to_qa 参数，用于区分 final response 生成
+            sample = self.generate_reasoning_for_sample(sample, is_qa_mode=convert_to_qa)
+            
+            # 3. 🔥 如果需要，转换为 QA 格式（仅在输出时）
+            if convert_to_qa:
+                print("\n🔄 转换为 QA 格式（删除 record tool calls）...")
+                sample = self.convert_to_qa_format(sample)
+                print("  ✓ 已转换为 QA 格式")
             
             results.append(sample)
         
@@ -504,12 +562,13 @@ Generate your output:"""
 
 
 def main():
-    parser = argparse.ArgumentParser(description="短对话 Reasoning 生成器 v4.2（CAMEL AI 自然生成）")
+    parser = argparse.ArgumentParser(description="短对话 Reasoning 生成器 v4.5（CAMEL AI 自然生成 + QA/Extract 区分 + QA 格式转换）")
     parser.add_argument("--input", required=True, help="输入文件路径")
     parser.add_argument("--output", required=True, help="输出文件路径")
     parser.add_argument("--api-key", help="DeepSeek API Key")
     parser.add_argument("--model", default="deepseek-chat", help="模型名称")
     parser.add_argument("--temperature", type=float, default=1.0, help="温度参数")
+    parser.add_argument("--convert-to-qa", action="store_true", help="转换为 QA 格式（删除 record tool calls）")
     
     args = parser.parse_args()
     
@@ -521,7 +580,7 @@ def main():
     )
     
     # 处理文件
-    generator.process_file(args.input, args.output)
+    generator.process_file(args.input, args.output, convert_to_qa=args.convert_to_qa)
 
 
 if __name__ == "__main__":
