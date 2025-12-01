@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-短对话 Reasoning 生成器 (v4.5)
+短对话 Reasoning 生成器 (v4.7)
 
 功能：
 1. 为短对话数据集生成 reasoning_content（使用 CAMEL AI）
@@ -10,6 +10,8 @@
 5. 支持 QA 格式转换（--convert-to-qa）
 
 改进：
+- v4.7: 简化 prompt，删除具体动词列表，只保留意图引导（Less is More）
+- v4.6: 明确区分 Extract/QA 的 user content 动词（extract vs ask）
 - v4.5: 修复 QA final response 生成，区分 QA/Extract prompt
 - v4.4: 添加 --convert-to-qa 参数，支持输出时格式转换
 - v4.3: 改进 QA 场景的 user content 生成，使用 CAMEL AI 生成自然问题
@@ -46,7 +48,7 @@ from reasoning_helpers import (
 
 
 class ShortReasoningGenerator:
-    """短对话 Reasoning 生成器 v4.5（CAMEL AI 自然生成 + QA/Extract 区分）"""
+    """短对话 Reasoning 生成器 v4.7（CAMEL AI 自然生成 + QA/Extract 区分）"""
     
     def __init__(self, model_name: str = "deepseek-chat", temperature: float = 1.0, api_key: str = None):
         """
@@ -89,7 +91,7 @@ class ShortReasoningGenerator:
         )
         
         print("\n" + "="*60)
-        print("短对话 Reasoning 生成器 (v4.5)")
+        print("短对话 Reasoning 生成器 (v4.7)")
         print("="*60)
         print("\n功能：")
         print("  1. 使用 CAMEL AI 生成自然的 user content")
@@ -97,7 +99,7 @@ class ShortReasoningGenerator:
         print("  3. 使用 Full 版本的 reasoning_helpers")
         print("  4. 支持 QA 格式转换（--convert-to-qa）")
         print("="*60 + "\n")
-        print(f"🚀 初始化短对话 Reasoning Generator v4.5...")
+        print(f"🚀 初始化短对话 Reasoning Generator v4.7...")
         print(f"💬 使用模型: {model_name}")
         print(f"🌡️  温度: {temperature}")
         print(f"📊 使用 Full 版本的 reasoning_helpers（完整上下文）")
@@ -128,18 +130,13 @@ Generate first-person reasoning for short extraction tasks. You have access to F
 
 Generate only the reasoning content, no tags or labels."""
     
-    def generate_user_content_from_search_queries(self, messages: List[Dict]) -> str:
+    def generate_user_content_from_search_queries(self, messages: List[Dict], is_qa_mode: bool = False) -> str:
         """
-        使用 CAMEL AI 生成自然的 user content
-        
-        原则：
-        1. 用户看到文档提到了某些数据（如 electricity, argon）
-        2. 用户不知道具体分类（Process Energy vs Post-processing Energy）
-        3. 用户不知道有几个（可能 argon 有 2 个，但用户只说"argon"）
-        4. 用户的请求应该是泛化的、自然的
+        使用 CAMEL AI 生成自然的 user content（区分 Extract/QA）
         
         Args:
-            messages: messages 数组
+            messages: 对话消息列表
+            is_qa_mode: 是否是 QA 模式（强制使用 QA prompt）
             
         Returns:
             生成的 user content
@@ -164,7 +161,8 @@ Generate only the reasoning content, no tags or labels."""
                             recorded_names.add("functional unit")
         
         # 根据记录的数据生成 user content
-        if recorded_names:
+        # 🔥 如果是 QA 模式，强制跳过 Extract 逻辑
+        if recorded_names and not is_qa_mode:
             # 有 record 操作：让 CAMEL AI 生成自然的请求
             names_list = sorted(list(recorded_names))
             
@@ -177,15 +175,16 @@ Generate only the reasoning content, no tags or labels."""
                 context = f"extracting data about {names_str}"
             
             # 使用 CAMEL AI 生成自然的 user content
-            prompt = f"""Generate a natural, conversational user request for {context}.
+            prompt = f"""Generate a natural user request for {context}.
 
-Requirements:
-1. Natural and conversational tone
-2. DO NOT mention specific values, categories, or technical classifications
-3. Keep it simple and direct
-4. Use question format or polite request format
+Guidelines:
+- Request the assistant to extract/record data
+- Natural and conversational
+- Keep it simple and direct (15-30 words)
 
-Generate ONE natural request (15-30 words):"""
+Output ONLY the final request, no thinking process.
+
+Generate the request:"""
             
             try:
                 user_msg = BaseMessage.make_user_message(role_name="User", content=prompt)
@@ -196,14 +195,14 @@ Generate ONE natural request (15-30 words):"""
                 return user_content
             except Exception as e:
                 print(f"  ⚠️  生成 user content 失败: {e}")
-                # 回退到简单模板
+                # 回退到简单模板（Extract 场景：使用 extraction 动词）
                 if "functional unit" in names_list:
-                    return "Can you help me identify the functional unit from this document?"
+                    return "Please help me extract and record the functional unit from this document."
                 elif len(names_list) == 1:
-                    return f"Please help me extract the {names_list[0]} data."
+                    return f"Please extract the {names_list[0]} data for me."
                 else:
                     names_str = " and ".join(names_list)
-                    return f"Can you help me extract data about {names_str}?"
+                    return f"Can you help me extract and record data about {names_str}?"
         
         else:
             # 没有 record（QA 场景）：基于 search queries，使用 CAMEL AI 生成自然问题
@@ -224,7 +223,7 @@ Generate ONE natural request (15-30 words):"""
                         break
             
             if not first_search_queries:
-                return "Please help me find LCI data from this document."
+                return "What LCI data can you find in this document?"
             
             # 🔥 NEW: QA 场景使用 CAMEL AI 生成自然的问题
             # 将 search queries 转换为主题描述
@@ -236,16 +235,16 @@ Generate ONE natural request (15-30 words):"""
             topics_str = ", ".join(topics)
             
             # 使用 CAMEL AI 生成自然的问题
-            prompt = f"""Generate a natural, conversational question asking about {topics_str} in a manufacturing process.
+            prompt = f"""Generate a natural user request asking about {topics_str} in a manufacturing process.
 
-Requirements:
-1. Use question format 
-2. Natural and conversational tone
-3. DO NOT mention specific values or technical terms
-4. Keep it simple and direct (15-25 words)
-5. Focus on ASKING, not EXTRACTING
+Guidelines:
+- Ask about information
+- Natural and conversational
+- Keep it simple and direct (15-25 words)
 
-Generate ONE natural question:"""
+Output ONLY the final request, no thinking process.
+
+Generate the request:"""
             
             try:
                 user_msg = BaseMessage.make_user_message(role_name="User", content=prompt)
@@ -256,8 +255,8 @@ Generate ONE natural question:"""
                 return user_content
             except Exception as e:
                 print(f"  ⚠️  生成 QA user content 失败: {e}")
-                # 回退到简单模板
-                return f"What information can you find about {topics_str}?"
+                # 回退到简单模板（QA 场景：使用询问语气）
+                return f"What can you tell me about {topics_str}?"
     
     def _extract_previous_actions(self, previous_messages: List[Dict]) -> List[str]:
         """
@@ -531,7 +530,8 @@ Generate your output:"""
             
             # 1. 生成 user content（从第一次 search 的 queries 反推）
             print("\n📝 生成 user content...")
-            user_content = self.generate_user_content_from_search_queries(messages)
+            # 🔥 传入 convert_to_qa 参数，用于区分 Extract/QA
+            user_content = self.generate_user_content_from_search_queries(messages, is_qa_mode=convert_to_qa)
             print(f"  ✓ User content: {user_content}")
             
             # 填充 user content
@@ -562,7 +562,7 @@ Generate your output:"""
 
 
 def main():
-    parser = argparse.ArgumentParser(description="短对话 Reasoning 生成器 v4.5（CAMEL AI 自然生成 + QA/Extract 区分 + QA 格式转换）")
+    parser = argparse.ArgumentParser(description="短对话 Reasoning 生成器 v4.7（CAMEL AI 自然生成 + QA/Extract 区分 + QA 格式转换）")
     parser.add_argument("--input", required=True, help="输入文件路径")
     parser.add_argument("--output", required=True, help="输出文件路径")
     parser.add_argument("--api-key", help="DeepSeek API Key")

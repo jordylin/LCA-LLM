@@ -59,7 +59,7 @@
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short/doc2 \
+  --output-dir dataset/short_extract/doc2 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -75,7 +75,7 @@ python scripts/batch_process_short_dialogues.py \
 
 **输出文件**：
 ```
-dataset/short/doc2/
+dataset/short_extract/doc2/
 ├── extract_001_exported.json    # 导出阶段
 ├── extract_001_improved.json    # 改进阶段
 ├── extract_001_complete.json    # 完成阶段（最终使用）
@@ -95,7 +95,7 @@ dataset/short/doc2/
 **处理特定 sessions**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short/doc2 \
+  --output-dir dataset/short_extract/doc2 \
   --session-ids "session_001,session_002,session_003" \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```

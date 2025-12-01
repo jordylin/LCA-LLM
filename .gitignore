@@ -10,6 +10,21 @@ dataset/
 # 上下文文件夹
 context_files/
 
+# 说明文件
+methodology.md/
+opinion.md/
+tool.md
+
+
+# 临时文件
+*.tmp
+*.log
+
+
+# 日志文件
+*.log
+logs/
+
 # Python 缓存
 __pycache__/
 *.py[cod]

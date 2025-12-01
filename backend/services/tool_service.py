@@ -8,9 +8,11 @@ import logging
 import tempfile
 import os
 import base64
+import numpy as np
 from typing import Dict, Any, List, Union
 from pathlib import Path
 from datetime import datetime
+from sentence_transformers import SentenceTransformer
 
 from .pdf_processor import PDFProcessor
 from .knowledge_base import TemporaryKnowledgeBase
@@ -46,8 +48,28 @@ class LCAToolService:
         self.pylca_executor = pylca_executor
         self.session_manager = session_manager
         
+        # 初始化语义匹配用的 embedding 模型（复用与知识库相同的模型）
+        self._init_semantic_matcher()
         
         logger.info("LCA工具服务初始化完成")
+    
+    def _init_semantic_matcher(self):
+        """
+        初始化语义匹配器，用于 coverage boost 的语义计算
+        复用 all-MiniLM-L6-v2 模型
+        """
+        local_model_path = "/home/Research_work/24_yzlin/LCA-LLM/models/all-MiniLM-L6-v2"
+        
+        try:
+            if os.path.exists(local_model_path):
+                self.semantic_model = SentenceTransformer(local_model_path)
+                logger.info(f"✅ 语义匹配器加载本地模型: {local_model_path}")
+            else:
+                self.semantic_model = SentenceTransformer("all-MiniLM-L6-v2")
+                logger.info("✅ 语义匹配器加载在线模型: all-MiniLM-L6-v2")
+        except Exception as e:
+            logger.warning(f"⚠️ 语义匹配器初始化失败，回退到精确匹配: {e}")
+            self.semantic_model = None
     
     def _save_temp_file(self, file_content: str, filename: str) -> str:
         """保存临时文件并返回路径"""
@@ -486,9 +508,12 @@ class LCAToolService:
     
     def _calculate_coverage_boost(self, content: str, query: str) -> float:
         """
-        计算关键词覆盖率提升分数
+        计算关键词覆盖率提升分数（语义增强版）
         
-        统计 chunk 中出现了多少个不同的查询关键词（覆盖率）
+        对每个查询关键词：
+        1. 先尝试精确匹配（快速路径）
+        2. 若不匹配，使用语义相似度判断是否"覆盖到了"
+        
         Returns: 0-0.25之间的提升分数
         """
         if not query:
@@ -496,20 +521,50 @@ class LCAToolService:
         
         # 提取查询关键词（支持批量查询，用 | 分隔）
         queries = query.split('|') if '|' in query else [query]
-        all_keywords = set()
+        all_keywords = []
         for q in queries:
-            keywords = set(q.strip().lower().split())
-            all_keywords.update(keywords)
+            keywords = q.strip().lower().split()
+            all_keywords.extend(keywords)
+        
+        # 去重但保持列表形式（用于 embedding）
+        all_keywords = list(set(all_keywords))
         
         if not all_keywords:
             return 0.0
         
-        # 统计 chunk 中出现的不同关键词数量
         content_lower = content.lower()
-        matched_keywords = sum(1 for kw in all_keywords if kw in content_lower)
+        matched_count = 0
+        
+        # 如果语义模型可用，使用语义匹配
+        if self.semantic_model is not None:
+            try:
+                # 计算 chunk 的 embedding（一次性）
+                chunk_embedding = self.semantic_model.encode(content_lower, normalize_embeddings=True)
+                
+                for kw in all_keywords:
+                    # 快速路径：精确匹配
+                    if kw in content_lower:
+                        matched_count += 1
+                    else:
+                        # 语义匹配：计算关键词与 chunk 的相似度
+                        kw_embedding = self.semantic_model.encode(kw, normalize_embeddings=True)
+                        similarity = np.dot(kw_embedding, chunk_embedding)
+                        
+                        # 阈值 0.35：平衡精确性和召回率
+                        # 能匹配: "titanium"/"Ti-6Al-4V", "energy"/"electricity", "waste"/"scrap"
+                        # 注意: 部分领域缩写如 "aluminum"/"AlSi10Mg" 可能无法匹配
+                        if similarity > 0.35:
+                            matched_count += 1
+                            
+            except Exception as e:
+                logger.warning(f"语义匹配计算失败，回退到精确匹配: {e}")
+                matched_count = sum(1 for kw in all_keywords if kw in content_lower)
+        else:
+            # 回退：精确匹配
+            matched_count = sum(1 for kw in all_keywords if kw in content_lower)
         
         # 覆盖率：匹配的关键词数 / 总关键词数
-        coverage = matched_keywords / len(all_keywords)
+        coverage = matched_count / len(all_keywords)
         
         # 权重 0.25
         return coverage * 0.25
