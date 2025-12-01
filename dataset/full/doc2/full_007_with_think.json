@@ -102,8 +102,7 @@
                 "chunk_id": "14",
                 "content": "## Table 3.1\n\n| Material Input | Quantity |\n|---|---|\n| Ti6Al4V Powder (Gas Atomized) | 20.83 kg |\n| Argon - Chamber Flooding | 3.03 kg |\n| Argon - Building Phase | 25.94 kg |\n"
               },
-              "note": "Chamber flooding",
-              "link_to": "ACT_0002"
+              "note": "Chamber flooding"
             }
           }
         ]
@@ -129,8 +128,7 @@
                 "chunk_id": "14",
                 "content": "## Table 3.1\n\n| Material Input | Quantity |\n|---|---|\n| Ti6Al4V Powder (Gas Atomized) | 20.83 kg |\n| Argon - Chamber Flooding | 3.03 kg |\n| Argon - Building Phase | 25.94 kg |\n"
               },
-              "note": "Building phase",
-              "link_to": "ACT_0003"
+              "note": "Building phase"
             }
           }
         ]
@@ -182,8 +180,7 @@
                 "chunk_id": "15",
                 "content": "## Table 3.2\n\n| Output Category | Quantity |\n|---|---|\n| Finished Femoral Stems (20 units) | 1.77 kg |\n| Unmelted Loose Powder (Recyclable) | 18.99 kg |\n| Support Structures & Minor Losses (Recyclable) | 0.019 kg |\n| Filter-Captured Metal Powder (Landfill) | 0.0208 kg |\n"
               },
-              "note": "Loose powder, recyclable",
-              "link_to": "ACT_0005"
+              "note": "Loose powder, recyclable"
             }
           }
         ]
@@ -209,8 +206,7 @@
                 "chunk_id": "15",
                 "content": "## Table 3.2\n\n| Output Category | Quantity |\n|---|---|\n| Finished Femoral Stems (20 units) | 1.77 kg |\n| Unmelted Loose Powder (Recyclable) | 18.99 kg |\n| Support Structures & Minor Losses (Recyclable) | 0.019 kg |\n| Filter-Captured Metal Powder (Landfill) | 0.0208 kg |\n"
               },
-              "note": "Support structures and minor losses, recyclable",
-              "link_to": "ACT_0006"
+              "note": "Support structures and minor losses, recyclable"
             }
           }
         ]
@@ -236,8 +232,7 @@
                 "chunk_id": "15",
                 "content": "## Table 3.2\n\n| Output Category | Quantity |\n|---|---|\n| Finished Femoral Stems (20 units) | 1.77 kg |\n| Unmelted Loose Powder (Recyclable) | 18.99 kg |\n| Support Structures & Minor Losses (Recyclable) | 0.019 kg |\n| Filter-Captured Metal Powder (Landfill) | 0.0208 kg |\n"
               },
-              "note": "Filter-captured, to landfill",
-              "link_to": "ACT_0007"
+              "note": "Filter-captured, to landfill"
             }
           }
         ]

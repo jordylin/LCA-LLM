@@ -334,9 +334,8 @@ You do NOT need to ask the user for session_id. Just call the tools directly wit
                 arguments["cas_number"] = action.get("cas_number")
             if action.get("location"):
                 arguments["location"] = action.get("location")
-            # 🔥 NEW: 添加link_to字段（用于链接到calculation或其他action）
-            if action.get("link_to"):
-                arguments["link_to"] = action.get("link_to")
+            # 注意：link_to 是内部字段，用于工作台标注时建立动作链条
+            # 不应导出到训练数据中，LLM 推理时不会用到
             
             return {
                 "name": "record_process_flow",

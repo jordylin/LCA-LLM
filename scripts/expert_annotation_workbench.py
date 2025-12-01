@@ -786,8 +786,8 @@ def column_b_document_context():
                 api_data = {
                     "session_id": st.session_state.workbench_session_id,
                     "queries": queries,  # 批量模式
-                    "max_results_per_query": 3,
-                    "max_total_results": 10,
+                    "max_results_per_query": max(2, max_results // len(queries)) if queries else 3,
+                    "max_total_results": max_results,  # 使用用户选择的值
                     "extract_mode": "comprehensive",
                     "min_similarity": min_similarity,
                     "deduplicate": True

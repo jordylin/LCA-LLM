@@ -127,8 +127,7 @@
                 "chunk_id": "11",
                 "content": "## Table 3.1\n\n| Metric | Build 1 | Build 2 | Current Build |\n|---|---|---|---|\n| Fresh Powder Input (kg) | 21.15 | 20.95 | 20.83 |\n| Final Product Mass (kg) | 1.77 | 1.77 | 1.77 |\n| Unmelted Powder Recovered (kg) | 19.25 | 19.08 | 18.99 |\n| Material Utilization Efficiency (%) | 8.37 | 8.45 | 8.50 |\n"
               },
-              "note": "Final Product",
-              "link_to": "ACT_0003"
+              "note": "Final Product"
             }
           }
         ]
@@ -154,8 +153,7 @@
                 "chunk_id": "11",
                 "content": "## Table 3.1\n\n| Metric | Build 1 | Build 2 | Current Build |\n|---|---|---|---|\n| Fresh Powder Input (kg) | 21.15 | 20.95 | 20.83 |\n| Final Product Mass (kg) | 1.77 | 1.77 | 1.77 |\n| Unmelted Powder Recovered (kg) | 19.25 | 19.08 | 18.99 |\n| Material Utilization Efficiency (%) | 8.37 | 8.45 | 8.50 |\n"
               },
-              "note": "Unmelted powder, recovered from selective laser melting process",
-              "link_to": "ACT_0004"
+              "note": "Unmelted powder, recovered from selective laser melting process"
             }
           }
         ]
@@ -475,8 +473,7 @@
                 "chunk_id": "22",
                 "content": "## Table 5.1\n\n| Waste Stream | Build 1 | Build 2 | Current Build |\n|---|---|---|---|\n| Support Structures & Losses (kg) | 0.022 | 0.020 | 0.019 |\n| Filter-Captured Powder (kg) | 0.0235 | 0.0215 | 0.0208 |\n| Total Waste (kg) | 0.0455 | 0.0415 | 0.0398 |\n| Waste per Stem (g/stem) | 2.28 | 2.08 | 1.99 |\n"
               },
-              "note": "Filter-captured powder from selective laser melting process",
-              "link_to": "ACT_0016"
+              "note": "Filter-captured powder from selective laser melting process"
             }
           }
         ]

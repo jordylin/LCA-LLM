@@ -316,36 +316,46 @@ class LCAToolService:
             
             # 判断模式：批量 or 单查询
             if queries:
-                # 批量模式：合并多个查询的结果
+                # 批量模式：改进版三阶段处理
+                # 阶段 1: 收集所有结果（不去重，不截断）
+                # 阶段 2: 去重（保留最高相似度）
+                # 阶段 3: 计算 boost，排序，取 Top N
                 logger.info(f"批量查询模式: {queries}")
-                all_results = []
-                seen_chunks = set()
+                
+                # 阶段 1: 收集所有候选结果
+                all_candidates = {}  # chunk_id -> best_result
                 
                 for q in queries:
                     search_results = session_data.knowledge_base.search(q, top_k=max_results_per_query * 2)
-            
-            # 过滤低相似度结果
+                    
+                    # 过滤低相似度结果（不截断数量）
                     filtered = [
                         result for result in search_results 
                         if result.get("similarity_score", 0) >= min_similarity
-                    ][:max_results_per_query]
+                    ]
                     
                     for result in filtered:
                         metadata = result.get("metadata", {})
                         chunk_id = metadata.get("chunk_id")
                         
-                        # 去重检查
-                        if deduplicate and chunk_id and chunk_id in seen_chunks:
+                        if not chunk_id:
                             continue
                         
-                        if chunk_id:
-                            seen_chunks.add(chunk_id)
-                        
-                        all_results.append(result)
+                        # 阶段 2: 去重时保留最高相似度
+                        if deduplicate:
+                            if chunk_id not in all_candidates:
+                                all_candidates[chunk_id] = result
+                            elif result.get("similarity_score", 0) > all_candidates[chunk_id].get("similarity_score", 0):
+                                # 更新为更高相似度的结果
+                                all_candidates[chunk_id] = result
+                        else:
+                            # 不去重模式：直接添加（用唯一键）
+                            unique_key = f"{chunk_id}_{len(all_candidates)}"
+                            all_candidates[unique_key] = result
                 
-                # 限制总数
-                search_results = all_results[:max_total_results]
-                query_for_processing = " | ".join(queries)  # 用于日志
+                # 转换为列表（阶段 3 的排序在 _process_search_results 后进行）
+                search_results = list(all_candidates.values())
+                query_for_processing = " | ".join(queries)  # 用于 boost 计算
             else:
                 # 单查询模式（原有逻辑）
                 logger.info(f"单查询模式: {query}")
@@ -364,8 +374,14 @@ class LCAToolService:
                 search_results, query_for_processing, extract_mode
             )
             
-            # 按提升后的分数重新排序（仅内部使用）
+            # 阶段 3: 按提升后的分数重新排序
             processed_results.sort(key=lambda x: x.get("_boosted_score", 0), reverse=True)
+            
+            # 阶段 3: 排序后截断（批量模式使用 max_total_results，单查询使用 max_results）
+            if queries:
+                processed_results = processed_results[:max_total_results]
+            else:
+                processed_results = processed_results[:max_results]
             
             # 格式化最终结果（移除内部字段）
             formatted_results = []
@@ -566,31 +582,29 @@ class LCAToolService:
         # 覆盖率：匹配的关键词数 / 总关键词数
         coverage = matched_count / len(all_keywords)
         
-        # 权重 0.25
-        return coverage * 0.25
+        # 权重 0.15（语义匹配后覆盖率普遍较高，降低影响）
+        return coverage * 0.15
     
     def _calculate_data_density_boost(self, content: str) -> float:
         """
-        计算数据密度提升分数（保守版）
+        计算数据密度提升分数（简化版）
         
-        阈值：5个数字为满分，过滤无关数字（如年份、页码）
-        Returns: 0-0.1之间的提升分数
+        阈值：5个数字为满分，仅过滤年份
+        Returns: 0-0.12之间的提升分数
         """
         import re
         
         # 提取所有数字
         numbers = re.findall(r'\d+\.?\d*', content)
         
-        # 过滤无关数字（年份范围 1900-2100，页码范围 1-999）
+        # 仅过滤年份（1900-2100），不过滤页码
+        # 理由：chunking 时页码已被清除，且 LCI 数据常在 1-999 范围内
         relevant_numbers = []
         for num in numbers:
             try:
                 val = float(num)
-                # 过滤年份和页码
-                if not (1900 <= val <= 2100 or 1 <= val <= 999):
-                    relevant_numbers.append(num)
-                # 保留小数（LCI 数据常用）
-                elif '.' in num:
+                # 只过滤年份
+                if not (1900 <= val <= 2100):
                     relevant_numbers.append(num)
             except ValueError:
                 continue
@@ -598,32 +612,30 @@ class LCAToolService:
         # 阈值：5个数字为满分
         density = min(len(relevant_numbers) / 5.0, 1.0)
         
-        # 权重 0.1
-        return density * 0.1
+        # 权重 0.12
+        return density * 0.12
     
     def _calculate_table_boost(self, content: str) -> float:
         """
-        计算表格标记提升分数（分层）
+        计算表格标记提升分数
         
-        - pipe_count >= 3: 简单表格，+0.1
-        - pipe_count >= 10: 复杂表格，+0.15
-        Returns: 0-0.15之间的提升分数
+        表格是 LCI 数据的核心载体，给予较高权重
+        - pipe_count >= 3: 有表格，+0.18
+        Returns: 0 或 0.18
         """
         pipe_count = content.count('|')
         
-        if pipe_count >= 10:
-            return 0.15  # 复杂表格
-        elif pipe_count >= 3:
-            return 0.1   # 简单表格
+        if pipe_count >= 3:
+            return 0.18  # 有表格
         else:
             return 0.0   # 无表格
     
     def _calculate_enhanced_boost(self, content: str, query: str) -> float:
         """
-        计算增强提升分数（保守版）
+        计算增强提升分数
         
-        组合：覆盖率(0.25) + 数据密度(0.1) + 表格标记(0.15)
-        Returns: 0-0.5之间的提升分数
+        组合：覆盖率(0.15) + 数据密度(0.12) + 表格标记(0.18)
+        Returns: 0-0.45之间的提升分数
         """
         coverage_boost = self._calculate_coverage_boost(content, query)
         density_boost = self._calculate_data_density_boost(content)

@@ -222,38 +222,37 @@ LLM需要从数百页PDF中定位特定信息（如"能源消耗"、"原材料�
 
 基础相似度分数可能无法准确反映chunk对LCI提取的价值。系统引入三层增强机制：
 
-1. **覆盖率提升（Coverage Boost）**：权重0.25
+1. **覆盖率提升（Coverage Boost）**：权重0.15
    ```python
-   # 统计chunk中出现了多少个不同的查询关键词
+   # 统计chunk中出现了多少个不同的查询关键词（语义匹配，阈值0.35）
    matched_keywords = sum(1 for kw in query_keywords if kw in chunk_content)
    coverage = matched_keywords / len(query_keywords)
-   boost += coverage * 0.25
+   boost += coverage * 0.15
    ```
    **理由**：包含更多查询关键词的chunk更可能是信息丰富的"黄金段落"。
 
-2. **数据密度提升（Data Density Boost）**：权重0.1
+2. **数据密度提升（Data Density Boost）**：权重0.12
    ```python
-   # 提取有意义的数字（排除年份、页码）
-   relevant_numbers = [num for num in numbers if is_lci_relevant(num)]
+   # 提取有意义的数字（仅排除年份1900-2100，不排除页码）
+   # 理由：chunking时页码已被清除，且LCI数据常在1-999范围内
+   relevant_numbers = [num for num in numbers if not is_year(num)]
    density = min(len(relevant_numbers) / 5.0, 1.0)
-   boost += density * 0.1
+   boost += density * 0.12
    ```
    **理由**：LCI数据高度定量化，数字密集的chunk更可能包含关键参数。
 
-3. **表格标记提升（Table Boost）**：权重0.1-0.15
+3. **表格标记提升（Table Boost）**：权重0.18
    ```python
    pipe_count = content.count('|')
-   if pipe_count >= 10:
-       boost += 0.15  # 复杂表格
-   elif pipe_count >= 3:
-       boost += 0.1   # 简单表格
+   if pipe_count >= 3:
+       boost += 0.18  # 有表格
    ```
    **理由**：LCI数据常以表格形式呈现，Markdown表格标记是强信号。
 
 **最终排序**：
 ```python
 final_score = similarity_score + coverage_boost + density_boost + table_boost
-# 范围：[0, 1.5]，其中1.0来自相似度，0.5来自增强
+# 范围：[0, 1.45]，其中1.0来自相似度，0.45来自增强
 ```
 
 **输出格式**：
@@ -268,10 +267,27 @@ final_score = similarity_score + coverage_boost + density_boost + table_boost
 }
 ```
 
+**批量搜索三阶段处理流程**：
+```
+阶段 1: 收集所有候选结果（不截断）
+- 每个 query 独立搜索，过滤 similarity < min_similarity
+- 不限制每个 query 的结果数量
+
+阶段 2: 智能去重（保留最高相似度）
+- 基于 chunk_id 去重
+- 同一 chunk 被多个 query 命中时，保留最高相似度
+
+阶段 3: 计算 boost，排序，截断
+- 计算 coverage + density + table boost
+- 按 boosted_score 排序
+- 取 Top N（用户可配置 max_results）
+```
+
 **关键设计点**：
-- ✅ **智能去重**：批量搜索时基于chunk_id去重，避免重复展示
-- ✅ **保守增强**：Boosting权重总和≤0.5，避免过度干扰原始相似度
+- ✅ **智能去重**：批量搜索时基于chunk_id去重，保留最高相似度
+- ✅ **保守增强**：Boosting权重总和≤0.45，避免过度干扰原始相似度
 - ✅ **模式适配**：支持chunks/sentences/key_points三种提取粒度
+- ✅ **延迟截断**：排序后再截断，确保保留最优结果
 
 ### 3.3 search_lci_database - 背景数据库检索工具
 
@@ -529,14 +545,14 @@ session_data = {
 
 **问题**：过度Boosting可能干扰原始语义相似度。
 
-**解决方案**：限制增强权重总和≤0.5
+**解决方案**：限制增强权重总和≤0.45
 
 | 增强类型 | 权重 | 阈值/条件 |
 |---------|------|----------|
-| 覆盖率提升 | 0.25 | 关键词匹配度 |
-| 数据密度提升 | 0.1 | 5个有效数字为满分 |
-| 表格标记提升 | 0.1-0.15 | pipe_count ≥ 3/10 |
-| **总和** | **≤0.5** | 原始相似度仍占主导 |
+| 覆盖率提升 | 0.15 | 关键词语义匹配度（阈值0.35） |
+| 数据密度提升 | 0.12 | 5个有效数字为满分（仅过滤年份） |
+| 表格标记提升 | 0.18 | pipe_count ≥ 3 |
+| **总和** | **≤0.45** | 原始相似度仍占主导 |
 
 **效果**：
 - 在不破坏语义排序的前提下，提升信息丰富chunk的排名
@@ -815,8 +831,8 @@ I need to find energy consumption data. Let me search the document first.
 | **默认分块大小** | 600字符 | 保持语义完整性 |
 | **分块重叠** | 150字符 | 避免信息割裂 |
 | **默认相似度阈值** | 0.3 | 平衡准确率与召回率 |
-| **Boosting权重总和** | ≤0.5 | 保守增强策略 |
-| **批量查询去重率** | ~20-30% | 减少冗余展示 |
+| **Boosting权重总和** | ≤0.45 | 保守增强策略（Coverage 0.15 + Density 0.12 + Table 0.18） |
+| **批量搜索处理** | 三阶段 | 收集→去重（保留最高相似度）→排序截断 |
 | **会话隔离** | 独立临时目录 | 确保多用户并发安全 |
 
 ---

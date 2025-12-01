@@ -59,7 +59,7 @@
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short_extract/doc2 \
+  --output-dir dataset/short_extract/doc3 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -75,7 +75,7 @@ python scripts/batch_process_short_dialogues.py \
 
 **输出文件**：
 ```
-dataset/short_extract/doc2/
+dataset/short_extract/doc3/
 ├── extract_001_exported.json    # 导出阶段
 ├── extract_001_improved.json    # 改进阶段
 ├── extract_001_complete.json    # 完成阶段（最终使用）
@@ -95,7 +95,7 @@ dataset/short_extract/doc2/
 **处理特定 sessions**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short_extract/doc2 \
+  --output-dir dataset/short_extract/doc3 \
   --session-ids "session_001,session_002,session_003" \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
@@ -112,7 +112,7 @@ python scripts/batch_process_short_dialogues.py \
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_qa.py \
-  --output-dir dataset/short_qa/doc1 \
+  --output-dir dataset/short_qa/doc3 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -128,7 +128,7 @@ python scripts/batch_process_short_qa.py \
 
 **输出文件**：
 ```
-dataset/short_qa/doc1/
+dataset/short_qa/doc3/
 ├── qa_001_exported.json         # 导出阶段（保留 record）
 ├── qa_001_improved.json         # 改进阶段（高质量 name/note）
 ├── qa_001_complete.json         # 完成阶段（最终使用，QA 格式）
@@ -189,7 +189,7 @@ dataset/short_qa/doc1/
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_full_dialogues.py \
-  --output-dir dataset/full/doc2 \
+  --output-dir dataset/full/doc3 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -206,7 +206,7 @@ python scripts/batch_process_full_dialogues.py \
 
 **输出文件**：
 ```
-dataset/full/doc2/
+dataset/full/doc3/
 ├── full_001_exported.json       # 导出阶段
 ├── full_001_improved.json       # 改进阶段
 ├── full_001_with_think.json     # 生成 reasoning

@@ -101,8 +101,7 @@
                 "chunk_id": "9",
                 "content": "## Table 3.1\n\n| Material Type | Quantity | Lot Number | Purpose |\n|---|---|---|---|\n| Ti6Al4V Powder (GA) | 20.83 kg | TIPOW-240501-A | Primary build material |\n| Argon Gas (Chamber Flood) | 3.03 kg | ARG-HP-240609 | Initial atmosphere establishment |\n| Argon Gas (Build Phase) | 25.94 kg | ARG-HP-240609 | Process atmosphere maintenance |\n"
               },
-              "note": "Chamber flood for initial atmosphere establishment",
-              "link_to": "ACT_0002"
+              "note": "Chamber flood for initial atmosphere establishment"
             }
           }
         ]
@@ -128,8 +127,7 @@
                 "chunk_id": "9",
                 "content": "## Table 3.1\n\n| Material Type | Quantity | Lot Number | Purpose |\n|---|---|---|---|\n| Ti6Al4V Powder (GA) | 20.83 kg | TIPOW-240501-A | Primary build material |\n| Argon Gas (Chamber Flood) | 3.03 kg | ARG-HP-240609 | Initial atmosphere establishment |\n| Argon Gas (Build Phase) | 25.94 kg | ARG-HP-240609 | Process atmosphere maintenance |\n"
               },
-              "note": "Build phase for process atmosphere maintenance",
-              "link_to": "ACT_0003"
+              "note": "Build phase for process atmosphere maintenance"
             }
           }
         ]
@@ -181,8 +179,7 @@
                 "chunk_id": "13",
                 "content": "## Table 4.2\n\n| Output Category | Quantity | Mass (kg) | Disposition |\n|---|---|---|---|\n| Finished Femoral Stems | 20 units | 1.77 | To heat treatment batch HT-240614 |\n| Recoverable Powder | 1 lot | 18.99 | Recycled - Lot TIPOW- REC-240613-A |\n| Support Structures | 1 batch | 0.019 | Titanium recycling stream |\n| Filter Waste | 1 filter | 0.0208 | Landfill disposal per protocol |\n"
               },
-              "note": "Recovered powder for recycling",
-              "link_to": "ACT_0005"
+              "note": "Recovered powder for recycling"
             }
           }
         ]
@@ -208,8 +205,7 @@
                 "chunk_id": "13",
                 "content": "## Table 4.2\n\n| Output Category | Quantity | Mass (kg) | Disposition |\n|---|---|---|---|\n| Finished Femoral Stems | 20 units | 1.77 | To heat treatment batch HT-240614 |\n| Recoverable Powder | 1 lot | 18.99 | Recycled - Lot TIPOW- REC-240613-A |\n| Support Structures | 1 batch | 0.019 | Titanium recycling stream |\n| Filter Waste | 1 filter | 0.0208 | Landfill disposal per protocol |\n"
               },
-              "note": "Support structures to titanium recycling stream",
-              "link_to": "ACT_0006"
+              "note": "Support structures to titanium recycling stream"
             }
           }
         ]
@@ -235,8 +231,7 @@
                 "chunk_id": "13",
                 "content": "## Table 4.2\n\n| Output Category | Quantity | Mass (kg) | Disposition |\n|---|---|---|---|\n| Finished Femoral Stems | 20 units | 1.77 | To heat treatment batch HT-240614 |\n| Recoverable Powder | 1 lot | 18.99 | Recycled - Lot TIPOW- REC-240613-A |\n| Support Structures | 1 batch | 0.019 | Titanium recycling stream |\n| Filter Waste | 1 filter | 0.0208 | Landfill disposal per protocol |\n"
               },
-              "note": "Filter waste to landfill disposal",
-              "link_to": "ACT_0007"
+              "note": "Filter waste to landfill disposal"
             }
           }
         ]
@@ -373,8 +368,7 @@
                 "chunk_id": "12",
                 "content": "## Table 4.1\n\n| Parameter | Value | Unit | Measurement Method |\n|---|---|---|---|\n| Machine Average Power | 2.4 | kW | Power analyzer PWR-MTR-04 |\n| Total Build Time | 61.35 | hours | Machine internal timer |\n| Laser Operating Power | 400 | W | Laser controller reading |\n| Auxiliary Systems Power | 1.2 | kW | Estimated average |\n"
               },
-              "note": "Selective laser melting machine operation, average power 2.4 kW",
-              "link_to": "ACT_0012"
+              "note": "Selective laser melting machine operation, average power 2.4 kW"
             }
           }
         ]
