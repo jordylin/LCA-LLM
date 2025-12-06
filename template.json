@@ -1,0 +1,63 @@
+{
+  "papers": [
+    {
+      "title": "TEMPLATE_TITLE",
+      "authors": "Author A, Author B",
+      "year": 2023,
+      "doi": "10.xxxx/xxxxxx",
+      "journal": "Journal Name",
+      "notes": "Optional: brief note about the study, system boundary, or special assumptions.",
+      "lci_data": {
+        "process_name": "TEMPLATE_PROCESS_NAME",
+        "functional_unit": "TEMPLATE_FUNCTIONAL_UNIT",
+        "scenario": "base_case",
+        "description": "Short natural-language description of the process and scenario as used in the study.",
+
+        "inputs": [
+          {
+            "id": "in_1",
+            "category": "Raw Material",
+            "name": "Example material input",
+            "value": 0.0,
+            "unit": "kg",
+            "location": "Global or country code",
+            "note": "Where this value comes from in the paper (e.g. Table 2, Section 3.1)."
+          }
+        ],
+
+        "outputs": [
+          {
+            "id": "out_1",
+            "category": "Product",
+            "name": "Example main product",
+            "value": 0.0,
+            "unit": "kg",
+            "quantity": 1,
+            "location": "Plant site or region",
+            "note": "Any clarifying remark about the product or yield."
+          }
+        ],
+
+        "parameters": [
+          {
+            "id": "par_1",
+            "name": "Example process time",
+            "value": 0.0,
+            "unit": "h",
+            "note": "Original wording in the paper, or how this parameter is measured."
+          }
+        ],
+
+        "relations": [
+          {
+            "flow": "Process Energy: Electricity for main process",
+            "relation_type": "calculation",
+            "calculation": "average_power * process_time",
+            "parameters_used": ["par_avg_power", "par_process_time"],
+            "note": "Optional: verbal description of the relationship as stated in the paper."
+          }
+        ]
+      }
+    }
+  ]
+}

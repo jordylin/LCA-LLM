@@ -942,6 +942,9 @@ def column_b_document_context():
                     current_query = st.session_state.current_search_query
                     last_action_id = st.session_state.get("last_action_id")
                     
+                    # 直接使用原始格式（字符串或数组）
+                    failed_query = current_query if current_query else ""
+                    
                     # 转换search_results为API所需的格式
                     failed_context_for_api = []
                     if current_results:
@@ -953,15 +956,14 @@ def column_b_document_context():
                             })
                     
                     with st.spinner("📝 Recording failure action..."):
-                        # 🔥 调用新的record_failure API
+                        # 调用 record_failure API
                         result = call_api(
                             "/tools/record-failure",
                             data={
                                 "session_id": st.session_state.workbench_session_id,
                                 "link_to": last_action_id,
-                                "failed_query": current_query,
-                                "failed_context": failed_context_for_api,
-                                "pivot_rationale": ""
+                                "failed_query": failed_query,
+                                "failed_context": failed_context_for_api
                             }
                         )
                         
@@ -975,6 +977,10 @@ def column_b_document_context():
                             # 🔥 更新session状态
                             st.session_state["last_action_id"] = new_action_id
                             st.session_state["last_intent"] = "pivot_query"
+                            
+                            # 🔥 NOTE: 不需要设置 next_intent
+                            # 下一次成功操作会自动检测 last_intent == "pivot_query"
+                            # 并建立 link_to 到这个 pivot 记录，形成"失败-成功闭环"
                             
                             # 🔥 清空搜索结果，让专家手动开始新搜索
                             st.session_state.search_results = []
@@ -1320,10 +1326,8 @@ def render_lca_scope_tool():
                                 # 🔥 不包含 score 字段：让 LLM 自己学习评估 chunk 质量
                             }
                         
-                        # 🔥 NEW: 确定意图类型 - 支持pivot_query
-                        if st.session_state.get("next_intent") == "pivot_query":
-                            intent = "pivot_query"
-                        elif st.session_state.get("refine_same_mode", False):
+                        # 🔥 确定意图类型
+                        if st.session_state.get("refine_same_mode", False):
                             intent = "refine_same"
                         else:
                             intent = "select_best"
@@ -1334,18 +1338,15 @@ def render_lca_scope_tool():
                         
                         link_to = None
                         
-                        # 🔥 NEW: 正确的link_to逻辑 - 三种需要建立依赖的情况
+                        # 🔥 NEW: 正确的link_to逻辑 - 需要建立依赖的情况
                         if intent == "refine_same": 
                             # 情况1: refine_same链接到它正在精炼的原始"成功"动作
                             link_to = last_action_id
-                        elif intent == "pivot_query" and last_intent == "pivot_query":
-                            # 情况2: 持续pivot - 失败动作B链接到失败动作A
-                            link_to = last_action_id  
                         elif intent == "select_best" and last_intent == "pivot_query":
-                            # 情况3: 失败-成功闭环 - 成功动作链接到它解决的失败动作
+                            # 情况2: 失败-成功闭环 - 成功动作链接到它解决的失败动作
                             link_to = last_action_id
                         elif intent == "select_best" and not st.session_state.current_context and last_intent == "calculate":
-                            # 规则4: 记录计算结果 (无上下文Scope) 链接到产生它的 Calculation 动作
+                            # 情况3: 记录计算结果 (无上下文Scope) 链接到产生它的 Calculation 动作
                             link_to = last_action_id
                         
                         result = call_api(
@@ -1539,33 +1540,27 @@ def render_process_flow_tool():
                 # 准备搜索上下文数据
                 search_context = st.session_state.current_search_context if st.session_state.current_search_context else None
                 
-                # 🔥 NEW: 确定意图类型 - 支持pivot_query
-                if st.session_state.get("next_intent") == "pivot_query":
-                    intent = "pivot_query"
-                elif st.session_state.get("refine_same_mode", False):
+                # 🔥 确定意图类型
+                if st.session_state.get("refine_same_mode", False):
                     intent = "refine_same"
                 else:
                     intent = "select_best"
                 
-                # 🔥 NEW: 实现link_to逻辑链条 (按照新方案)
+                # 🔥 实现link_to逻辑链条
                 last_intent = st.session_state.get("last_intent")
                 last_action_id = st.session_state.get("last_action_id")
                 
                 link_to = None
                 
-                # 🔥 NEW: 正确的link_to逻辑 - 四种需要建立依赖的情况
+                # 🔥 正确的link_to逻辑 - 需要建立依赖的情况
                 if intent == "refine_same": 
                     # 情况1: refine_same链接到它正在精炼的原始"成功"动作
                     link_to = last_action_id
-                elif intent == "pivot_query" and last_intent == "pivot_query":
-                    # 情况2: 持续pivot - 失败动作B链接到失败动作A
-                    link_to = last_action_id  
                 elif intent == "select_best" and last_intent == "pivot_query":
-                    # 情况3: 失败-成功闭环 - 成功动作链接到它解决的失败动作
+                    # 情况2: 失败-成功闭环 - 成功动作链接到它解决的失败动作
                     link_to = last_action_id
                 elif last_intent == "calculate":
-                    # 🔥 FIX: 规则4: 记录计算结果链接到产生它的 Calculation 动作
-                    # 不再要求 not has_context，因为用户可能选择了包含calculation的chunk作为参考
+                    # 情况3: 记录计算结果链接到产生它的 Calculation 动作
                     link_to = last_action_id
                 
                 # 🔥 NEW: 构建API请求数据
@@ -1586,11 +1581,6 @@ def render_process_flow_tool():
                     "link_to": link_to
                 }
                 
-                # 🔥 NEW: 清理pivot_query相关的session状态
-                if intent == "pivot_query":
-                    # 清除next_intent标记
-                    if "next_intent" in st.session_state:
-                        del st.session_state["next_intent"]
                 
                 result = call_api("/tools/record-process-flow", data=api_data)
                 
@@ -1601,8 +1591,9 @@ def render_process_flow_tool():
                     # 显示成功消息，区分不同意图
                     if intent == "refine_same":
                         st.success("Refined data recorded successfully from the same chunk!")
-                    elif intent == "pivot_query":
-                        st.success("🔄 Pivot data recorded successfully with failed context analysis!")
+                    elif last_intent == "pivot_query":
+                        # 🔥 FIX: 检测是否是 pivot 后的成功操作（通过 last_intent 判断）
+                        st.success("🔄 Data recorded successfully after pivot!")
                     else:
                         st.success("Process flow recorded successfully")
                     

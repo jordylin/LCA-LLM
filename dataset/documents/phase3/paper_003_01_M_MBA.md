@@ -31,6 +31,7 @@ The gas atomization process converts steel billets into the fine powder required
 Build #13 demonstrated improved material efficiency in powder production compared to previous operations. The gas atomization process consumed 0.414 kg of steel billet to produce 0.352 kg of ER70 steel powder, representing a powder yield of approximately 85.0%.
 
 **Table: Powder Production Inputs - Build #13**
+
 | Resource Type | Quantity | 
 |---------------|----------|
 | Steel Billet | 0.414 kg |
@@ -55,6 +56,7 @@ The core additive manufacturing phase represents the most energy-intensive porti
 Build #13 required 11.49 kWh of electricity over a 6.55-hour build cycle, resulting in an average power draw of 1.75 kW throughout the operation. This power profile remained stable with minimal fluctuation, indicating consistent laser performance and thermal management.
 
 **Table: SLM Process Parameters - Build #13**
+
 | Parameter | Value |
 |-----------|-------|
 | Total Build Time | 6.55 hours |
@@ -80,6 +82,7 @@ The completion of the SLM build requires subsequent machining to achieve final d
 Finish machining for Build #13 consumed 2.84 kWh of electricity over 4.133 hours of operation, with an average power draw of 0.687 kW. The process utilized 1.94 kg of cutting fluid for cooling and lubrication throughout the machining cycle.
 
 **Table: Machining Operations - Build #13**
+
 | Resource | Quantity |
 |----------|----------|
 | Electricity Consumption | 2.84 kWh |
@@ -104,6 +107,7 @@ The production process yields both the finished product and various waste stream
 Build #13 produced one marine propeller with a final mass of 0.204 kg, meeting all dimensional and quality specifications. The component passed all non-destructive testing and met surface finish requirements without requiring rework.
 
 **Table: Production Output - Build #13**
+
 | Output Type | Quantity |
 |-------------|----------|
 | Marine Propeller | 0.204 kg, 1 unit |

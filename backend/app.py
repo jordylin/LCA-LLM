@@ -636,13 +636,12 @@ class RecordProcessFlowRequest(BaseModel):
     intent: Optional[str] = "select_best"  # 动作意图: "select_best" | "refine_same" | "pivot_query"
     link_to: Optional[str] = None  # 指向上一步动作的action_id
 
-# 🔥 NEW: 专门记录Pivot失败的请求模型 (新方案)
+# 记录Pivot失败的请求模型
 class RecordPivotFailureRequest(BaseModel):
     session_id: str
-    failed_query: str              # 失败的搜索查询（必需）
+    failed_query: Union[str, List[str]]  # 失败的搜索查询（必需，支持字符串或数组）
     link_to: Optional[str] = None  # 连接到上一个action_id（可选）
-    failed_context: Optional[List[ChunkInfo]] = None  # 失败查询返回的chunks（可选，用于数据收集）
-    pivot_rationale: Optional[str] = None           # 失败原因（可选，用于数据收集）
+    failed_context: Optional[List[ChunkInfo]] = None  # 失败查询返回的chunks（可选）
 
 # 🔥 NEW: 专门记录智能跳过的请求模型
 class RecordSmartSkipRequest(BaseModel):
@@ -870,7 +869,7 @@ async def tool_record_process_flow(request: RecordProcessFlowRequest):
 
 @app.post("/tools/record-failure", response_model=ToolResponse)
 async def tool_record_failure(request: RecordPivotFailureRequest):
-    """🔥 NEW: 工具 - 记录Pivot失败动作 (新方案)"""
+    """工具 - 记录Pivot失败动作"""
     try:
         # 转换failed_context为字典列表
         failed_context_list = []
@@ -889,8 +888,7 @@ async def tool_record_failure(request: RecordPivotFailureRequest):
             session_id=request.session_id,
             link_to=request.link_to,
             failed_query=request.failed_query,
-            failed_context=failed_context_list,
-            pivot_rationale=request.pivot_rationale
+            failed_context=failed_context_list
         )
         
         if result.get("success"):

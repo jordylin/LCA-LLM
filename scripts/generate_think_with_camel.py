@@ -271,6 +271,15 @@ Generate ONE natural user request (output ONLY the request, no explanation):"""
         self.agent.clear_memory()
         print(f"  🧹 已清空 Agent 记忆（开始新 sample）")
         
+        # 🔥 检查最后一条消息是否是 tool response，如果是，自动添加 final assistant 消息
+        if messages and messages[-1].get("role") == "tool":
+            print(f"  📝 检测到最后一条是 tool response，自动添加 final assistant 消息")
+            messages.append({
+                "role": "assistant",
+                "reasoning_content": "",  # 占位符，后面会填充
+                "content": ""  # 占位符，后面会填充
+            })
+        
         # 🔥 填充空的 user content（如果第二条消息是 user 且内容为空）
         if len(messages) >= 2 and messages[1].get("role") == "user":
             if not messages[1].get("content") or messages[1].get("content").strip() == "":

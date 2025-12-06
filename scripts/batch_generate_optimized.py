@@ -17,9 +17,9 @@ def batch_generate_optimized(
     批量生成所有文献的文档（优化版本）
     
     每篇文献生成 10 个文档：
-    - Simple: 6 个（60%）
-    - Medium: 3 个（30%）
-    - Complex: 1 个（10%）
+    - Simple: 4 个（40%）
+    - Medium: 4 个（40%）
+    - Complex: 2 个（20%）
     
     Args:
         input_dir: LCI数据目录（默认：dataset/lci_literature）
@@ -67,29 +67,29 @@ def batch_generate_optimized(
         print(f"📚 找到 {len(json_files)} 个文献文件")
     print(f"\n📊 生成策略:")
     print(f"   - 每篇文献: 10 个文档")
-    print(f"   - Simple: 6 个 (60%)")
-    print(f"   - Medium: 3 个 (30%)")
-    print(f"   - Complex: 1 个 (10%)")
+    print(f"   - Simple: 4 个 (40%)")
+    print(f"   - Medium: 4 个 (40%)")
+    print(f"   - Complex: 2 个 (20%)")
     print(f"   - 预计总文档数: {len(json_files) * 10}")
     
-    # 定义生成配置（v5.0: 工业真实性 + 新增文本丰富类型，训练检索能力）
+    # 定义生成配置（v5.1: 工业真实性 + 文本丰富类型，训练检索能力；比例 4/4/2）
     # 格式: (difficulty, document_type)
     generation_config = [
-        # Simple (6 个) - 工业文档 + 新增文本丰富类型
-        ("simple", "batch_production_record"),          # 工业，表格 80%
-        ("simple", "material_traceability"),            # 工业，表格 70%
-        ("simple", "build_job_log"),                    # 工业，表格 60%
-        ("simple", "quality_inspection"),               # 工业，表格 80%
-        ("simple", "process_development_report"),       # 新增，文本 70%，工艺开发叙事
-        ("simple", "technical_process_report"),         # 现有，文本 60%，技术分析
+        # Simple (4 个) - 工业操作/记录类文档
+        ("simple", "batch_production_record"),      # 批次生产记录
+        ("simple", "build_job_log"),                # 设备作业日志
+        ("simple", "material_traceability"),        # 物料追溯
+        ("simple", "quality_inspection"),           # 质量检验
         
-        # Medium (3 个) - 新增研究类型 + 现有对比分析
-        ("medium", "manufacturing_feasibility_study"),  # 新增，文本 65%，可行性评估
-        ("medium", "process_characterization_study"),   # 新增，文本 70%，工艺理解
-        ("medium", "multi_build_analysis"),             # 现有，文本 50%，对比分析
+        # Medium (4 个) - 工程分析与开发/可行性类文档
+        ("medium", "technical_process_report"),         # 技术工艺报告
+        ("medium", "process_development_report"),       # 工艺开发报告
+        ("medium", "multi_build_analysis"),             # 多批次对比分析
+        ("medium", "manufacturing_feasibility_study"),  # 制造可行性研究
         
-        # Complex (1 个) - 学术研究，最接近 LCA 文献
-        ("complex", "research_case_study"),             # 现有，文本 80%，学术案例
+        # Complex (2 个) - 研究/表征类长文档
+        ("complex", "research_case_study"),             # 研究型案例分析
+        ("complex", "process_characterization_study"),  # 工艺表征研究
     ]
     
     # 逐个处理

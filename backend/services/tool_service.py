@@ -1683,18 +1683,16 @@ class LCAToolService:
                            session_id: str,
                            failed_query: str,
                            link_to: str = None,
-                           failed_context: List[Dict[str, Any]] = None,
-                           pivot_rationale: str = None) -> Dict[str, Any]:
+                           failed_context: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        🔥 NEW: 记录Pivot失败动作 (新方案)
+        记录Pivot失败动作
         立即记录一个独立的失败动作，intent为"pivot_query"
         
         Args:
             session_id: 会话ID
-            failed_query: 失败的搜索查询（必需）
+            failed_query: 失败的搜索查询（必需，字符串或数组）
             link_to: 连接到上一个action_id（可选）
-            failed_context: 失败查询返回的垃圾chunks（可选，用于数据收集）
-            pivot_rationale: 专家填写的失败原因（可选，用于数据收集）
+            failed_context: 失败查询返回的chunks（可选，用于数据收集）
             
         Returns:
             Dict[str, Any]: 记录结果 (包含new_action_id)
@@ -1724,23 +1722,20 @@ class LCAToolService:
             else:
                 new_action_id = "ACT_0001"
             
-            # 🔥 构建失败动作记录 (只包含必要字段，不包含无关的null字段)
+            # 构建失败动作记录
             now = datetime.now().isoformat()
             failure_record = {
                 "action_id": new_action_id,
                 "session_id": session_id,
-                "record_type": "pivot",  # 🔥 添加 record_type
-                "intent": "pivot_query",  # 🔥 关键: 标记为失败动作
+                "record_type": "pivot",
+                "intent": "pivot_query",
                 "link_to": link_to,
-                "created_at": now,  # 🔥 添加 created_at 用于排序
+                "created_at": now,
                 "timestamp": now,
                 
-                # 🔥 失败动作的核心字段
+                # 失败动作的核心字段
                 "failed_query": failed_query,
-                "failed_context": failed_context or [],
-                "pivot_rationale": pivot_rationale
-                
-                # 🔥 优化: 不再包含无关的成功字段，保持记录简洁
+                "failed_context": failed_context or []
             }
             
             # 插入到MongoDB

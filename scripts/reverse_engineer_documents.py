@@ -29,6 +29,7 @@ v3.1改进（特征引导+专家建议版）：
 - build_job_log: 设备作业日志
 - material_traceability: 物料追溯报告
 - quality_inspection: 质量检验报告
+- process_narrative_memo: 工艺运行叙述备忘（高文本、少表格）
 
 【Tier 2 - 中文档 3000-4500词】
 - technical_process_report: 技术工艺报告
@@ -142,227 +143,157 @@ class DocumentReverseEngineer:
         # ============================================================
         base_prompt = """You are creating documentation for an additive manufacturing process based on provided inventory data.
 
-**GROUND TRUTH**: The inventory data (materials, energy, products, waste, gas) must be accurately reflected with exact values.
+Your goal is to write authentic, domain-appropriate documents for the specified document type and audience. The document should read like something a real professional in this context would write for their actual work needs.
 
-**AUTHENTICITY**: Create documentation that reads like real-world documents in this domain, not artificial data showcases. Add contextual details appropriate to the document type.
+**GROUND TRUTH**
+- Treat the provided inventory values (materials, energy, products, waste, gases, parameters) as the factual basis behind the document.
+- It is important that the main resource flows (key materials, energy, gas, product and waste amounts) appear somewhere in the document with their correct magnitudes and units.
+- You may add realistic contextual detail, and you may choose which supporting parameters to surface where they are most helpful, but you must not change or contradict the given values.
 
-**FORBIDDEN TERMINOLOGY**: Avoid using professional terms or concepts related to life cycle assessment. These terms would not appear in authentic operational/technical documents.
+**DATA PLACEMENT AND SUMMARIES**
+- Do not create a single bullet list, table, or paragraph that restates every numerical fact in one place. Let values appear in the sections where they naturally belong (e.g., material balance, energy analysis, gas use, KPIs, machine parameters).
+- Executive summaries and introductory sections should focus on objectives, qualitative outcomes, and at most a few headline quantitative figures (for example total build time, approximate total energy use, or approximate material utilization).
+- In high-level summaries it is acceptable to round values to realistic figures (e.g., "about 0.49 kg of powder", "around 11 kWh of electricity"), while keeping exact values in tables or detailed sections.
 
-**COMPARATIVE DATA (Optional)**: For longer documents, you may include contextual comparisons (e.g., "Last year: ~X", "Industry benchmark: ~Y") to enhance realism. Clearly mark these as historical/reference data, distinct from the current reporting period data which must exactly match the JSON.
+**ROLE OF THE DOCUMENT**
+- The primary purpose of the document is its stated business purpose (e.g., batch record, technical report, case study), not "presenting LCI data".
+- Inventory data should appear where it naturally belongs for that purpose: as part of operations, methods, results, or traceability, depending on the document type.
 
-**COMPLETENESS**: If a data category is missing, either state it was not recorded or naturally omit it (as happens in real documents).
+**STYLE AND TONE**
+- Use a professional tone consistent with the document type and audience.
+- Structure the document in a way that would be natural for practitioners in this domain, not optimized for machine extraction.
+- Include sufficient context so that a human reader unfamiliar with the specific run can still understand what was done.
 
-**OUTPUT FORMAT**: Output ONLY the document content in plain Markdown format. Do NOT wrap the output in markdown code blocks (```markdown). Start directly with the document title.
+**DOCUMENT LENGTH AND DEPTH**
+- For short, operational document types such as batch production records, build job logs, material traceability reports and quality inspection reports, aim for roughly 2000–3000 words.
+- For medium-length analytical documents such as technical process reports, environmental assessments, multi-build analyses, process development reports, manufacturing feasibility studies and process characterization studies, aim for roughly 3500–5000 words.
+- For in-depth case studies and sustainability chapters (e.g., research case studies and sustainability report chapters), aim for roughly 6000–8000 words.
 
-**TABLE FORMATTING**: When including tables, ALWAYS add a blank line before and after the table. This is required for proper PDF conversion.
+These are soft targets: you do not need to hit an exact word count, but the document should be substantial enough to fully serve its professional purpose rather than a brief summary.
 
+**CONTENT RICHNESS**
+- Beyond listing numerical values, include appropriate narrative context: background or motivation where relevant, concise process descriptions, and interpretation of what the results imply for operations or engineering decisions.
+- Where it is natural for the document type, briefly mention limitations, assumptions, or next steps in your own words, rather than following a fixed template.
+
+**INTERPRETATION STYLE**
+- When you explain how values are calculated or related, prefer short, natural-language descriptions over long, step-by-step algebraic formulas or code-like expressions.
+- Do not criticize, "correct", or override the given numeric values. Treat them as the authoritative recorded measurements for this document, even when they could be recombined or re-derived from each other.
+- Avoid meta-comments such as "the provided data lists...", "this dataset shows...", or "the input data appears inconsistent". Write as if you are the engineer or analyst reporting your own measurements and calculations inside the document.
+
+**FORBIDDEN TERMINOLOGY**
+- Do NOT use life cycle assessment jargon (e.g., "LCA", "LCI", "life cycle inventory", "functional unit", "impact assessment").
+- These documents are operational, technical, or managerial records, not explicit sustainability studies.
+
+**OUTPUT FORMAT**
+- Output ONLY the document content in plain Markdown.
+- Do NOT wrap the output in markdown code fences.
+- Start directly with the document title as a level-1 heading (# Title).
+
+**TABLES AND PDF CONVERSION**
+- When you include tables, use standard Markdown table syntax with header and separator rows.
+- Always include a blank line before and after each table; this is important for the downstream Markdown-to-PDF conversion pipeline.
+- Do not nest tables or mix table rows with list markers or headings on the same line.
 """
         
         # ============================================================
-        # Difficulty Instructions: 数据呈现方式
+        # Difficulty Instructions: 数据呈现方式（控制表格/文本比例与显性/隐含程度）
         # ============================================================
         difficulty_instructions = {
             "simple": """
-**DATA PRESENTATION**: Clear and consolidated
-Make it easy for readers to extract complete LCI data quickly. Use summary tables as appropriate for this document type.
+The document should behave like a clear, practical record where most quantitative information is presented through tables.
+
+- Use several focused tables grouped by topic or process stage (e.g., material inputs, energy use, outputs), rather than a single table that tries to list every possible item.
+- Tables should directly list values that would realistically be recorded in logs or reports (materials, energy, waste, key outputs), so that a reader can see the numbers without doing extra calculations.
+- Narrative text should mainly tie the tables to the workflow and explain what they refer to; it may repeat or highlight important values, but should not be the only place where key quantities appear.
+
+Overall, favor straightforward, table-centered presentation of data while still writing as a real practitioner would for this document type.
 """,
+
             "medium": """
-**DATA PRESENTATION**: Distributed narrative
-Embed LCI data naturally throughout the document. Readers should need to read multiple sections to collect the complete picture. Small focused tables for single aspects are fine, but avoid large summary tables showing all LCI categories together.
+The document should combine tables and narrative text so that neither alone contains the full picture.
+
+- Some important quantities should appear in tables (for structured reference), while others only appear inside paragraphs that describe activities, operating conditions, or simple calculations.
+- It is natural to show how certain totals, intensities, or ratios are derived from underlying values, with at least a few such relationships explained explicitly in the text.
+- Avoid designing a single "master paragraph" or table that exposes the entire material and energy balance; instead, let different parts of the balance appear in the sections where they are most naturally discussed.
+- To reconstruct the complete resource inventory, a knowledgeable reader will need to read multiple sections and cross-reference both tables and prose.
+
+Overall, favor a realistic mix of tables and narrative explanation, with modest but non-trivial reasoning needed to connect all the data.
 """,
+
             "complex": """
-**DATA PRESENTATION**: Parameter-based (for calculable items)
-Present underlying parameters rather than final totals when marked [CALCULABLE]. Readers must calculate to derive LCI values.
+The document should read like an in-depth technical or analytical report where many key quantities are embedded in narrative, parameters, and relationships.
 
-**For long documents (>4000 words)**: While distributing parameters throughout the document, keep calculation-related parameters within the same logical section or chapter to maintain reasoning traceability.
+- Emphasize parameters, intensities, rates, ratios, and operating conditions described in the text; final totals may be implied or scattered rather than always listed in one place.
+- Use tables selectively for representative parameters, partial results, or local summaries, but avoid relying on a single exhaustive inventory table that lists every input and output flow explicitly.
+- Clearly describe how quantities relate to each other (e.g., how power, time, and throughput combine), including major assumptions and their implications for performance.
+- It is not necessary for any single section to expose every important flow explicitly; expect expert readers to cross-reference multiple sections when needed.
+- Do not try to help the reader by repeating all major numeric values together in a recap paragraph; keep detailed breakdowns localized to where they are first introduced.
+- A reader should need to interpret narrative descriptions, parameter values, and occasional tables together—often performing their own calculations—to reconstruct the full set of inventory data.
 
-For [DIRECT] items, show final values normally.
-"""}
+Overall, favor depth and reasoning-centered reporting, where understanding the process requires reading, connecting information across sections, and using the given relationships.
+"""
+        }
         
         # ============================================================
-        # Document Type Instructions: 特征描述（v3.1）
+        # Document Type Instructions: 特征描述（按文档用途和受众分层）
         # ============================================================
         document_type_instructions = {
-            # ========== Tier 1: 短文档 (1500-2500 words) ==========
+            # ========== Tier 1: 短文档 (2000-3000 words) ==========
             "batch_production_record": """
-**DOCUMENT TYPE**: Batch Production Record (1500-2500 words)
-
-**Typical for**: Factory production logging and traceability
-**Audience**: Production supervisors, quality control, operations team
-**Typical characteristics**:
-- Operational and factual focus
-- Chronological flow with timestamped entries
-- Traceability elements (batch IDs, operator names, equipment IDs, lot numbers)
-- Matter-of-fact tone, concise operational language
-- Mix of log entries and brief procedural notes
-
-**For Complex difficulty**: Present energy/resource data as raw measurements rather than calculated totals, requiring readers to perform the calculation.
+This document is a batch production record for a specific manufacturing batch. It is written mainly for production supervisors and quality staff to trace what was done, when it was done, and with which materials and equipment. The tone is factual and concise, and the organization typically follows the production flow or chronological order, including preparation, execution, and post-processing. Resource usage such as material quantities, gas consumption, machine run durations, and waste handling naturally appears while describing these concrete steps and checkpoints, rather than as a standalone data report.
 """,
-            
+
             "build_job_log": """
-**DOCUMENT TYPE**: Build Job Log (1500-2200 words)
-
-**Typical for**: Equipment operation logging for maintenance and process control
-**Audience**: Machine operators, maintenance team, process engineers
-**Typical characteristics**:
-- Technical log format with timestamped events
-- Equipment status and sensor readings
-- Operational data and alarm records
-- Can be telegraphic in style
-- Focus on factual equipment performance data
+This document is a build job log focused on the operation of a particular machine or build job. It is written for machine operators, maintenance personnel, and process engineers. The emphasis is on equipment status, events, alarms, sensor readings, and interventions over time. The structure often resembles time-ordered entries or event-based sections. Resource-related information such as power draw, gas supply, or consumables appears as part of recording how the machine was set up, monitored, and shut down, not as the central topic. For medium and complex difficulty, prefer embedding more data in narrative descriptions of events rather than relying heavily on tables.
 """,
-            
+
             "material_traceability": """
-**DOCUMENT TYPE**: Material Traceability Report (1800-2500 words)
-
-**Typical for**: Material flow tracking for quality assurance and compliance
-**Audience**: Quality assurance, supply chain, regulatory compliance
-**Typical characteristics**:
-- Material flow tracking from receiving to disposition
-- Emphasis on lot numbers, weighing records, chain of custody
-- Mass balance and material accounting focus
-- Professional QA documentation style
-- Traceability through material transformations
+This document is a material traceability report used for quality assurance and compliance. It is written for QA teams, supply chain managers, and auditors who need to follow materials from receipt through processing to final disposition. The focus is on lot numbers, quantities, locations, and transformations of materials, maintaining a clear chain of custody. Resource quantities naturally appear when recording receiving records, in-process movements, blending or splitting of lots, and final allocation to products or waste streams.
 """,
-            
+
             "quality_inspection": """
-**DOCUMENT TYPE**: Quality Inspection Report (1500-2500 words)
-
-**Typical for**: Quality verification and compliance documentation
-**Audience**: Quality control, customer audits, certification bodies
-**Typical characteristics**:
-- Inspection procedures and test results
-- Pass/fail criteria and conformance statements
-- Measurement data and dimensional verification
-- Reference to quality standards and specifications
-- Formal inspection documentation style
+This document is a quality inspection report that records how parts or batches were inspected and whether they met specified criteria. It is written for quality control staff, customers, and sometimes certification bodies. The emphasis is on inspection procedures, sampling plans, measurement results, pass/fail decisions, and references to specifications. Resource and process data may appear where they are relevant to the inspection context, but the main focus is on conformity assessment rather than resource accounting.
 """,
-            
-            # ========== Tier 2: 中文档 (3000-4500 words) ==========
+
+            "process_narrative_memo": """
+This document is an internal narrative memo or run log written by a process engineer or senior operator after completing a manufacturing run. It is intended for colleagues, supervisors, or future reference. The writing style is prose-heavy: almost all information appears in paragraphs or short bullet lists, with minimal or no tables. Quantitative data such as material usage, energy consumption, gas supply, and waste handling are embedded naturally in sentences describing what was done and observed. The structure follows the chronological flow of the run or the logical sequence of setup, execution, and wrap-up, rather than a formal report template.
+""",
+
+            # ========== Tier 2: 中文档 (3500-5000 words) ==========
             "technical_process_report": """
-**DOCUMENT TYPE**: Technical Process Report (3000-4500 words)
-
-**Typical for**: Process engineering documentation and technical analysis
-**Audience**: Process engineers, technical managers, R&D team
-**Typical characteristics**:
-- Technical and analytical focus
-- Structured sections (Introduction, Process Description, Results, Analysis, Conclusions)
-- Process parameter discussions and technical rationale
-- Engineering terminology and technical depth
-- Balance of narrative explanation and technical data
-- Professional technical documentation style
+This document is a technical process report describing a manufacturing process in depth for engineers and technical managers. It typically includes background, process description, methodology, results, and technical discussion. The writing balances narrative explanation with detailed technical data such as parameters, settings, and measured outcomes. Resource-related information appears as part of describing how the process is configured and how it performed, rather than as a separate inventory chapter. For medium and complex difficulty, lean toward prose-based explanations and use tables sparingly for key summaries only.
 """,
-            
+
             "environmental_assessment": """
-**DOCUMENT TYPE**: Environmental Assessment Summary (3500-4500 words)
-
-**Typical for**: Environmental impact evaluation and sustainability reporting
-**Audience**: Environmental managers, sustainability teams, regulatory bodies
-**Typical characteristics**:
-- Environmental performance focus
-- Resource consumption and waste generation analysis
-- Comparison to benchmarks or previous periods
-- Interpretation of environmental significance
-- Recommendations for improvement
-- Professional environmental reporting style
+This document is an environmental assessment-style process summary aimed at environmental managers or operational teams interested in resource use and emissions, without using formal life cycle assessment terminology. It highlights resource consumption, waste generation, and operational practices that influence environmental performance. Data about materials, energy, and waste appears in the context of describing process stages and their implications, and may be compared qualitatively or quantitatively to previous periods or generic benchmarks.
 """,
-            
+
             "multi_build_analysis": """
-**DOCUMENT TYPE**: Multi-Build Comparative Analysis (3500-4500 words)
-
-**Typical for**: Process optimization and production performance analysis
-**Audience**: Production management, process engineers, continuous improvement teams
-**Typical characteristics**:
-- Comparative analysis across multiple production runs
-- Trend identification and variance analysis
-- Performance metrics and efficiency discussions
-- Root cause analysis of variations
-- Data-driven insights and recommendations
-- Analytical technical writing style
+This document is a multi-build comparative analysis that looks across several production runs or scenarios. It is written for process engineers and production management to understand variability and trends. The organization typically contrasts different builds or conditions, discussing performance metrics, stability, and observed differences. Resource and output data are used to support comparisons across builds, appearing where they help explain patterns, deviations, or improvement opportunities.
 """,
-            
-            # ========== Tier 3: 长文档 (5000-7000 words) ==========
+
+            # ========== Tier 3: 长文档 (6000-8000 words) ==========
             "research_case_study": """
-**DOCUMENT TYPE**: Research Case Study (5000-7000 words)
-
-**Typical for**: Academic or industry research documentation
-**Audience**: Researchers, academics, industry experts, technical professionals
-**Typical characteristics**:
-- Comprehensive scholarly structure (Abstract, Introduction/Background, Methodology, Results, Discussion, Conclusions)
-- Context-setting with broader field perspective (general references to research areas, not specific citations)
-- Detailed methodology description
-- In-depth results presentation and interpretation
-- Critical analysis and discussion of findings
-- Implications and future work considerations
-- Formal academic/technical writing tone
+This document is a research-style case study intended for a technical or academic audience. It usually follows a structured flow from background and objectives through methodology, results, and discussion to conclusions. The emphasis is on transparency of methods, reproducibility, and careful interpretation of findings. Resource and process data are embedded within the methodological description and the presentation of results, and may be revisited in the discussion when interpreting process behavior or performance.
 """,
-            
+
             "sustainability_report": """
-**DOCUMENT TYPE**: Annual Sustainability Report Chapter (5000-7000 words)
-
-**Typical for**: Corporate sustainability and ESG reporting
-**Audience**: Stakeholders, investors, sustainability analysts, general public
-**Typical characteristics**:
-- Comprehensive coverage of sustainability dimensions (environmental, economic, operational)
-- Executive summary and key highlights
-- Year-over-year comparisons and trend analysis
-- Contextualization within organizational goals and industry standards
-- Narrative storytelling combined with data presentation
-- Forward-looking commitments and improvement plans
-- Professional corporate reporting style with stakeholder focus
+This document is a chapter of a broader sustainability or corporate responsibility report. It is written for a mixed audience that can include internal stakeholders, investors, and external readers. The writing combines narrative framing with selected quantitative indicators, often connecting operational practices to broader sustainability goals. Resource and waste data from the process appear as part of illustrating performance, efficiency, and improvement efforts, alongside qualitative explanations and contextual information.
 """,
-            
+
             # ========== 新增文档类型（v5.0）：文本丰富，训练检索能力 ==========
             "process_development_report": """
-**DOCUMENT TYPE**: Process Development Report (3500-5000 words)
-
-**Typical for**: Process engineering and manufacturing development
-**Audience**: Process engineers, R&D team, manufacturing managers, technical leadership
-**Typical characteristics**:
-- Narrative of process development journey from concept to production
-- Description of parameter optimization and troubleshooting activities
-- Evolution of process understanding over development cycles
-- Technical rationale for design choices and parameter selection
-- Discussion of challenges encountered and solutions implemented
-- Lessons learned and best practices identified
-- Balance of technical narrative and supporting data
-- Professional engineering documentation style
-- Focus on the "how" and "why" of process development
+This document is a process development report describing how a manufacturing process was developed and refined over time. It is written for process engineers, R&D teams, and technical leadership. The narrative typically covers stages of experimentation, parameter exploration, design choices, and lessons learned. Resource and performance data are used to illustrate why certain configurations were chosen or rejected, appearing naturally in the story of development rather than in a single consolidated inventory section.
 """,
-            
+
             "manufacturing_feasibility_study": """
-**DOCUMENT TYPE**: Manufacturing Feasibility Study (4000-5500 words)
-
-**Typical for**: New process evaluation and technology adoption decisions
-**Audience**: Management, engineering team, operations planning, strategic decision-makers
-**Typical characteristics**:
-- Comprehensive feasibility assessment from multiple perspectives
-- Technical requirements and resource analysis
-- Infrastructure and operational considerations
-- Risk identification and mitigation strategies
-- Practical implementation considerations
-- Cost implications (without detailed financial analysis)
-- Recommendations and decision support
-- Professional consulting/advisory documentation style
-- Balance of technical depth and business perspective
+This document is a manufacturing feasibility study prepared to support decisions about adopting or scaling a process. It is written for decision-makers, engineers, and operations planners. The content considers technical requirements, resource needs, infrastructure implications, risks, and practical constraints. Resource and capacity data are woven into the analysis of feasibility, trade-offs, and recommendations, rather than being presented in isolation.
 """,
-            
-            "process_characterization_study": """
-**DOCUMENT TYPE**: Process Characterization Study (4000-6000 words)
 
-**Typical for**: Process understanding and optimization research
-**Audience**: Process engineers, researchers, technical specialists, R&D teams
-**Typical characteristics**:
-- Systematic investigation of process behavior and patterns
-- Analysis of input-output relationships and dependencies
-- Identification of key process variables and their effects
-- Empirical observations and pattern recognition
-- Technical insights and process understanding development
-- Discussion of process sensitivities and control strategies
-- Balance of analytical narrative and experimental observations
-- Technical research documentation style
-- Focus on building process knowledge and understanding
-"""}
+            "process_characterization_study": """
+This document is a process characterization study aimed at understanding how a process behaves under different conditions. It is written for process engineers and researchers. The structure often reflects experimental or observational campaigns, analyzing relationships between inputs, parameters, and outputs. Resource and process data appear throughout the description of test conditions and results, supporting analysis of sensitivities, dependencies, and stable operating windows.
+"""
+        }
         
         
         # ============================================================
@@ -446,11 +377,15 @@ For [DIRECT] items, show final values normally.
         ]
         
         if difficulty == "complex" and relations:
-            notes.append("\n**For Complex documents**: Present the underlying parameters for [CALCULABLE] flows rather than the final calculated value.")
+            notes.append("\n**For Complex documents**: Present the underlying parameters for [CALCULABLE] flows rather than the final calculated value, and describe key relationships in concise prose rather than long algebraic derivations.")
         elif difficulty == "medium" and relations:
             notes.append("\n**Tip for Medium documents**:")
-            notes.append("- You may mention how flows were calculated in narrative form")
-            notes.append("- Example: 'Based on 2.23 MJ/kg consumption and 4.11 kg material, the process required 2.55 kWh...'")
+            notes.append("- You may briefly mention in words how some totals or ratios are obtained from underlying values, but avoid extended step-by-step calculations.")
+        
+        notes.append("\n**Integration guidance**:")
+        notes.append("- Do not simply copy the 'Data to document' list into the report as a single block.")
+        notes.append("- Integrate these values into the sections where they naturally belong (for example material balance, energy analysis, gas consumption, results, or KPI tables).")
+        notes.append("- It is acceptable if some contextual parameters are only mentioned once in a focused section, rather than being repeated many times across the document.")
         
         prompt = f"""Process: {process_name}
 

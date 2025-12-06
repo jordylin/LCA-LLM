@@ -46,6 +46,7 @@ The gas atomization process transforms bulk ER70 steel into the fine powder requ
 The gas atomization process consumed 0.414 kg of ER70 steel billet to produce 0.352 kg of usable powder, representing a mass conversion efficiency of approximately 85%. The mass discrepancy primarily results from satellite formation and off-size particles removed during powder classification. The high conversion rate indicates effective process control during atomization, with minimal material lost to oxidation or other degradation mechanisms.
 
 **Table 1: Gas Atomization Material Balance**
+
 | Component | Mass (kg) |
 |-----------|-----------|
 | Steel Billet Input | 0.414 |
@@ -71,6 +72,7 @@ The core additive manufacturing phase demonstrates the most complex resource uti
 Total electrical energy consumption during the SLM build phase measured 11.49 kWh distributed over a build time of 6.55 hours. The average power consumption during active building was 1.75 kW, though this value fluctuated significantly throughout the build cycle.
 
 **Table 2: SLM Build Phase Energy Distribution**
+
 | Consumption Component | Value |
 |----------------------|-------|
 | Total Build Energy | 11.49 kWh |
@@ -105,6 +107,7 @@ Finish machining transforms the as-built SLM component into the final functional
 Electrical energy consumption during finish machining totaled 2.84 kWh over a machining time of 4.133 hours. The average power consumption measured 0.687 kW, consistent with the light machining parameters employed for the final finishing operations.
 
 **Table 3: Finish Machining Parameters and Consumption**
+
 | Parameter | Value |
 |-----------|-------|
 | Machining Time | 4.133 hours |

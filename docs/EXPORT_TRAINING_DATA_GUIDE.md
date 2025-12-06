@@ -189,7 +189,7 @@ dataset/short_qa/doc3/
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_full_dialogues.py \
-  --output-dir dataset/full/doc3 \
+  --output-dir dataset/full/doc7 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -206,7 +206,7 @@ python scripts/batch_process_full_dialogues.py \
 
 **输出文件**：
 ```
-dataset/full/doc3/
+dataset/full/doc7/
 ├── full_001_exported.json       # 导出阶段
 ├── full_001_improved.json       # 改进阶段
 ├── full_001_with_think.json     # 生成 reasoning
@@ -249,12 +249,12 @@ python scripts/improve_name_note_with_camel.py \
 **步骤 3: 生成 reasoning**
 ```bash
 python scripts/generate_short_reasoning.py \
-  --input dataset/extract_001_improved.json \
-  --output dataset/extract_001_complete.json \
+  --input dataset/short_extract/doc7/short_004_improved.json \
+  --output dataset/short_extract/doc7/short_004_complete.json \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
-**最终文件**：`dataset/extract_001_complete.json`（JSON 格式）
+**最终文件**：`dataset/short_extract/doc7/short_004_complete.json`（JSON 格式）
 
 ---
 

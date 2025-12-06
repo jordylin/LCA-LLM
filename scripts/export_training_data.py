@@ -483,7 +483,7 @@ You do NOT need to ask the user for session_id. Just call the tools directly wit
         
         Args:
             session_id: 会话ID
-            search_query: 搜索查询（可能是字符串或列表）
+            search_query: 搜索查询（字符串或列表）
             
         Returns:
             arguments字典
