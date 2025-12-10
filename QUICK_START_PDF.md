@@ -10,7 +10,7 @@ source /home/Research_work/24_yzlin/LCA-LLM/lcaLLM/bin/activate
 python scripts/md_to_pdf.py dataset/documents/your_document.md
 
 # 3. 批量转换所有文档
-for file in dataset/documents/phase3/*.md; do python scripts/md_to_pdf.py "$file"; done
+for file in dataset/documents/phase8/*.md; do python scripts/md_to_pdf.py "$file"; done
 ```
 
 ## 样式效果

@@ -251,7 +251,7 @@
               "flow_type": "Output",
               "category": "Waste",
               "name": "Waste metal powder, Ti-6Al-4V",
-              "value": 0.019,
+              "value": 0.0208,
               "unit": "kg",
               "selected_chunk": {
                 "chunk_id": "14",
@@ -264,7 +264,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"message\": \"Successfully recorded process flow: waste Ti6Al4V  powder\",\n  \"data\": {\n    \"record_id\": \"69290fd4d9086875325fc2fd\",\n    \"action_id\": \"ACT_0009\",\n    \"session_id\": \"5dcec575-9d2c-4f97-8604-3be501ed9e2a\",\n    \"flow_type\": \"Output\",\n    \"category\": \"Waste\",\n    \"name\": \"waste Ti6Al4V  powder\",\n    \"value\": 0.019,\n    \"unit\": \"kg\"\n  }\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"message\": \"Successfully recorded process flow: waste Ti6Al4V  powder\",\n  \"data\": {\n    \"record_id\": \"69290fd4d9086875325fc2fd\",\n    \"action_id\": \"ACT_0009\",\n    \"session_id\": \"5dcec575-9d2c-4f97-8604-3be501ed9e2a\",\n    \"flow_type\": \"Output\",\n    \"category\": \"Waste\",\n    \"name\": \"waste Ti6Al4V  powder\",\n    \"value\": 0.0208,\n    \"unit\": \"kg\"\n  }\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -281,7 +281,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 femoral stems made of Ti6Al4V alloy using SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V Powder: 20.83 kg (Input/Raw Material)\\n  - Argon (Chamber Flooding): 3.03 kg (Input/Gas)\\n  - Argon (Building Phase): 25.94 kg (Input/Gas)\\n  - Electricity: 147.26 kWh (Input/Process Energy)\\n  - 20 Ti6Al4V Femoral Stems: 1.77 kg (Output/Product)\\n  - Unmelted Loose Powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Waste)\\n  - waste Ti6Al4V  powder: 0.019 kg (Output/Waste)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 femoral stems made of Ti6Al4V alloy using SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V Powder: 20.83 kg (Input/Raw Material)\\n  - Argon (Chamber Flooding): 3.03 kg (Input/Gas)\\n  - Argon (Building Phase): 25.94 kg (Input/Gas)\\n  - Electricity: 147.26 kWh (Input/Process Energy)\\n  - 20 Ti6Al4V Femoral Stems: 1.77 kg (Output/Product)\\n  - Unmelted Loose Powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Waste)\\n  - waste Ti6Al4V  powder: 0.0208 kg (Output/Waste)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -410,7 +410,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 femoral stems made of Ti6Al4V alloy using SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V Powder: 20.83 kg (Input/Raw Material)\\n  - Argon (Chamber Flooding): 3.03 kg (Input/Gas)\\n  - Argon (Building Phase): 25.94 kg (Input/Gas)\\n  - Electricity: 147.26 kWh (Input/Process Energy)\\n  - 20 Ti6Al4V Femoral Stems: 1.77 kg (Output/Product)\\n  - Unmelted Loose Powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Waste)\\n  - waste Ti6Al4V  powder: 0.019 kg (Output/Waste)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 femoral stems made of Ti6Al4V alloy using SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V Powder: 20.83 kg (Input/Raw Material)\\n  - Argon (Chamber Flooding): 3.03 kg (Input/Gas)\\n  - Argon (Building Phase): 25.94 kg (Input/Gas)\\n  - Electricity: 147.26 kWh (Input/Process Energy)\\n  - 20 Ti6Al4V Femoral Stems: 1.77 kg (Output/Product)\\n  - Unmelted Loose Powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Waste)\\n  - waste Ti6Al4V  powder: 0.0208 kg (Output/Waste)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -516,7 +516,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 femoral stems made of Ti6Al4V alloy using SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V Powder: 20.83 kg (Input/Raw Material)\\n  - Argon (Chamber Flooding): 3.03 kg (Input/Gas)\\n  - Argon (Building Phase): 25.94 kg (Input/Gas)\\n  - Electricity: 147.26 kWh (Input/Process Energy)\\n  - 20 Ti6Al4V Femoral Stems: 1.77 kg (Output/Product)\\n  - Unmelted Loose Powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Waste)\\n  - waste Ti6Al4V  powder: 0.019 kg (Output/Waste)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 femoral stems made of Ti6Al4V alloy using SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V Powder: 20.83 kg (Input/Raw Material)\\n  - Argon (Chamber Flooding): 3.03 kg (Input/Gas)\\n  - Argon (Building Phase): 25.94 kg (Input/Gas)\\n  - Electricity: 147.26 kWh (Input/Process Energy)\\n  - 20 Ti6Al4V Femoral Stems: 1.77 kg (Output/Product)\\n  - Unmelted Loose Powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Waste)\\n  - waste Ti6Al4V  powder: 0.0208 kg (Output/Waste)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",

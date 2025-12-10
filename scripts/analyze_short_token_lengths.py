@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-"""Analyze token length of full dialogue JSON files.
+"""Analyze token length of short dialogue JSON files (short_extract / short_qa).
 
 Usage (from repo root):
 
-  # Quick test: sample 3 files with local Qwen3-8B tokenizer
-  python scripts/analyze_full_token_lengths.py --sample 3
+  # Default: analyze short_extract and short_qa, only *complete*.json files
+  python scripts/analyze_short_token_lengths.py
 
-  # Full scan
-  python scripts/analyze_full_token_lengths.py
+  # Specify custom roots (one or more) and pattern
+  python scripts/analyze_short_token_lengths.py \
+      --data-dirs dataset/short_extract dataset/short_qa \
+      --pattern "*complete*.json"
 
 Model: Qwen3-8B (32k native context, 128k with YaRN)
 Thresholds: 8k / 16k / 32k tokens
@@ -21,7 +23,7 @@ import argparse
 import math
 import random
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 
 def build_token_counter(hf_model_name: Optional[str]) -> Tuple[Callable[[str], int], str]:
@@ -54,9 +56,15 @@ def build_token_counter(hf_model_name: Optional[str]) -> Tuple[Callable[[str], i
 
 
 def analyze_files(data_dir: Path, pattern: str, hf_model_name: Optional[str], sample: Optional[int] = None) -> None:
+    """Analyze token lengths for all files under data_dir matching pattern.
+
+    Only files whose name matches the glob pattern are included (e.g. *complete*.json).
+    Mapping / log files are filtered out by simple name checks.
+    """
+
     files = sorted(data_dir.rglob(pattern))
     # Filter out mapping / log files if matched accidentally
-    files = [p for p in files if not p.name.endswith("session_id_mapping.json")]
+    files = [p for p in files if not p.name.endswith("session_id_mapping.json") and not p.name.endswith(".log")]
 
     if not files:
         print(f"[INFO] No files found under {data_dir} matching pattern '{pattern}'.")
@@ -73,9 +81,9 @@ def analyze_files(data_dir: Path, pattern: str, hf_model_name: Optional[str], sa
 
     counter, counter_desc = build_token_counter(hf_model_name)
     print(f"[INFO] Using token counter: {counter_desc}")
-    print(f"[INFO] Starting analysis...\n")
+    print(f"[INFO] Starting analysis for root: {data_dir}\n")
 
-    lengths = []  # list of (path, char_len, token_len)
+    lengths: List[Tuple[Path, int, int]] = []  # (path, char_len, token_len)
 
     for path in files:
         try:
@@ -129,20 +137,26 @@ def analyze_files(data_dir: Path, pattern: str, hf_model_name: Optional[str], sa
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze token lengths of full dialogue JSON files.")
+    parser = argparse.ArgumentParser(
+        description="Analyze token lengths of short dialogue JSON files (short_extract / short_qa).",
+    )
     parser.add_argument(
-        "--data-dir",
+        "--data-dirs",
         type=str,
-        default="dataset/full",
-        help="Root directory containing full dialogue JSON files (default: dataset/full)",
+        nargs="+",
+        default=["dataset/short_extract", "dataset/short_qa"],
+        help=(
+            "One or more root directories containing short dialogue JSON files. "
+            "Default: ['dataset/short_extract', 'dataset/short_qa']."
+        ),
     )
     parser.add_argument(
         "--pattern",
         type=str,
-        default="full_*_with_think.json",
+        default="*complete*.json",
         help=(
-            "Glob pattern to match files under data-dir (default: 'full_*_with_think.json'). "
-            "You can change this to e.g. 'full_*_improved.json'."
+            "Glob pattern to match files under each data-dir (default: '*complete*.json'). "
+            "Only files whose name includes 'complete' will be analyzed."
         ),
     )
     parser.add_argument(
@@ -158,18 +172,31 @@ def main() -> None:
         "--sample",
         type=int,
         default=None,
-        help="Randomly sample N files instead of analyzing all. Useful for quick tests.",
+        help=(
+            "Randomly sample N files per root instead of analyzing all. "
+            "Useful for quick tests."
+        ),
     )
 
     args = parser.parse_args()
-    data_dir = Path(args.data_dir)
 
-    if not data_dir.exists():
-        print(f"[ERROR] data-dir does not exist: {data_dir}")
-        return
-
+    data_dirs: Iterable[str] = args.data_dirs
     hf_model = args.hf_model_name if args.hf_model_name else None
-    analyze_files(data_dir=data_dir, pattern=args.pattern, hf_model_name=hf_model, sample=args.sample)
+
+    any_exists = False
+    for root in data_dirs:
+        data_dir = Path(root)
+        print("=" * 60)
+        print(f"[INFO] Root: {data_dir}")
+        if not data_dir.exists():
+            print(f"[WARN] data-dir does not exist, skipping: {data_dir}")
+            continue
+        any_exists = True
+        analyze_files(data_dir=data_dir, pattern=args.pattern, hf_model_name=hf_model, sample=args.sample)
+        print()
+
+    if not any_exists:
+        print("[ERROR] None of the specified data-dirs exist. Nothing to analyze.")
 
 
 if __name__ == "__main__":  # pragma: no cover

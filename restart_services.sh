@@ -25,6 +25,13 @@ sleep 2
 # 2. 启动后端
 echo ""
 echo "2️⃣ 启动后端 (端口 8000)..."
+# 🔥 LLM 服务选择：
+#   LLM_SERVICE=vllm       使用 vLLM（需要先运行 ./start_vllm.sh）
+#   LLM_SERVICE=qwen_agent 使用 Qwen-Agent
+#   LLM_SERVICE=local      使用 LocalQwenService（默认）
+export LLM_SERVICE=${LLM_SERVICE:-local}
+export VLLM_API_BASE=${VLLM_API_BASE:-http://localhost:8080/v1}
+echo "   LLM 服务: $LLM_SERVICE"
 python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "   后端 PID: $BACKEND_PID"

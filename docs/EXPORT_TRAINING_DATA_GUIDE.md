@@ -59,7 +59,7 @@
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short_extract/doc3 \
+  --output-dir dataset/short_extract/doc4 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -75,7 +75,7 @@ python scripts/batch_process_short_dialogues.py \
 
 **输出文件**：
 ```
-dataset/short_extract/doc3/
+dataset/short_extract/doc4/
 ├── extract_001_exported.json    # 导出阶段
 ├── extract_001_improved.json    # 改进阶段
 ├── extract_001_complete.json    # 完成阶段（最终使用）
@@ -95,7 +95,7 @@ dataset/short_extract/doc3/
 **处理特定 sessions**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short_extract/doc3 \
+  --output-dir dataset/short_extract/doc4 \
   --session-ids "session_001,session_002,session_003" \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
@@ -112,7 +112,7 @@ python scripts/batch_process_short_dialogues.py \
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_qa.py \
-  --output-dir dataset/short_qa/doc3 \
+  --output-dir dataset/short_qa/doc4 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -128,7 +128,7 @@ python scripts/batch_process_short_qa.py \
 
 **输出文件**：
 ```
-dataset/short_qa/doc3/
+dataset/short_qa/doc4/
 ├── qa_001_exported.json         # 导出阶段（保留 record）
 ├── qa_001_improved.json         # 改进阶段（高质量 name/note）
 ├── qa_001_complete.json         # 完成阶段（最终使用，QA 格式）
@@ -189,7 +189,7 @@ dataset/short_qa/doc3/
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_full_dialogues.py \
-  --output-dir dataset/full/doc7 \
+  --output-dir dataset/full/doc8 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -206,7 +206,7 @@ python scripts/batch_process_full_dialogues.py \
 
 **输出文件**：
 ```
-dataset/full/doc7/
+dataset/full/doc8/
 ├── full_001_exported.json       # 导出阶段
 ├── full_001_improved.json       # 改进阶段
 ├── full_001_with_think.json     # 生成 reasoning
@@ -249,12 +249,12 @@ python scripts/improve_name_note_with_camel.py \
 **步骤 3: 生成 reasoning**
 ```bash
 python scripts/generate_short_reasoning.py \
-  --input dataset/short_extract/doc7/short_004_improved.json \
-  --output dataset/short_extract/doc7/short_004_complete.json \
+  --input dataset/short_extract/doc8/short_004_improved.json \
+  --output dataset/short_extract/doc8/short_004_complete.json \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
-**最终文件**：`dataset/short_extract/doc7/short_004_complete.json`（JSON 格式）
+**最终文件**：`dataset/short_extract/doc8/short_004_complete.json`（JSON 格式）
 
 ---
 

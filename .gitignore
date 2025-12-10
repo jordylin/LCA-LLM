@@ -15,6 +15,10 @@ methodology.md/
 opinion.md/
 tool.md
 
+#llama
+LLaMA-Factory/
+llamaboard_cache
+
 
 # 临时文件
 *.tmp

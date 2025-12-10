@@ -226,7 +226,7 @@
               "category": "Gas",
               "name": "Argon",
               "value": 3.03,
-              "unit": "J",
+              "unit": "kg",
               "selected_chunk": {
                 "chunk_id": "7",
                 "content": "## Table 2.1\n\n| Gas Application | Quantity | Purpose |\n|---|---|---|\n| Chamber Flooding | 3.03 kg | Initial oxygen displacement |\n| Building Phase | 25.94 kg | Continuous process protection |\n"
@@ -238,11 +238,11 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"message\": \"Successfully recorded process flow: argon\",\n  \"data\": {\n    \"record_id\": \"69292b92d9086875325fc312\",\n    \"action_id\": \"ACT_0008\",\n    \"session_id\": \"3c5c9a78-0382-468f-b1c6-e29101fc55e2\",\n    \"flow_type\": \"Input\",\n    \"category\": \"Gas\",\n    \"name\": \"argon\",\n    \"value\": 3.03,\n    \"unit\": \"J\"\n  }\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"message\": \"Successfully recorded process flow: argon\",\n  \"data\": {\n    \"record_id\": \"69292b92d9086875325fc312\",\n    \"action_id\": \"ACT_0008\",\n    \"session_id\": \"3c5c9a78-0382-468f-b1c6-e29101fc55e2\",\n    \"flow_type\": \"Input\",\n    \"category\": \"Gas\",\n    \"name\": \"argon\",\n    \"value\": 3.03,\n    \"unit\": \"kg\"\n  }\n}\n</tool_response>"
       },
       {
         "role": "assistant",
-        "reasoning_content": "I notice there's another argon input with a different unit. This might be for powder production or chamber purging.",
+        "reasoning_content": "I notice there's a second argon input with the same kg unit, corresponding to the building phase. I should record it as a separate gas input so that chamber flooding and continuous process protection are distinguished.",
         "tool_calls": [
           {
             "name": "record_process_flow",
@@ -281,7 +281,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 units of Ti6Al4V femoral stems via SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V powder: 20.83 kg (Input/Raw Material)\\n  - 20 Finished femoral stems: 1.77 kg (Output/Product)\\n  - Recyclable Ti6Al4V powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Recovered Material)\\n  - waste Ti6Al4V powder: 0.0208 kg (Output/Waste)\\n  - electricity: 147.26 kWh (Input/Process Energy)\\n  - argon: 3.03 J (Input/Gas)\\n  - argon: 25.94 kg (Input/Gas)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 units of Ti6Al4V femoral stems via SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V powder: 20.83 kg (Input/Raw Material)\\n  - 20 Finished femoral stems: 1.77 kg (Output/Product)\\n  - Recyclable Ti6Al4V powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Recovered Material)\\n  - waste Ti6Al4V powder: 0.0208 kg (Output/Waste)\\n  - electricity: 147.26 kWh (Input/Process Energy)\\n  - argon: 3.03 kg (Input/Gas)\\n  - argon: 25.94 kg (Input/Gas)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -431,7 +431,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 units of Ti6Al4V femoral stems via SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V powder: 20.83 kg (Input/Raw Material)\\n  - 20 Finished femoral stems: 1.77 kg (Output/Product)\\n  - Recyclable Ti6Al4V powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Recovered Material)\\n  - waste Ti6Al4V powder: 0.0208 kg (Output/Waste)\\n  - electricity: 147.26 kWh (Input/Process Energy)\\n  - argon: 3.03 J (Input/Gas)\\n  - argon: 25.94 kg (Input/Gas)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 units of Ti6Al4V femoral stems via SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V powder: 20.83 kg (Input/Raw Material)\\n  - 20 Finished femoral stems: 1.77 kg (Output/Product)\\n  - Recyclable Ti6Al4V powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Recovered Material)\\n  - waste Ti6Al4V powder: 0.0208 kg (Output/Waste)\\n  - electricity: 147.26 kWh (Input/Process Energy)\\n  - argon: 3.03 kg (Input/Gas)\\n  - argon: 25.94 kg (Input/Gas)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -537,7 +537,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 units of Ti6Al4V femoral stems via SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V powder: 20.83 kg (Input/Raw Material)\\n  - 20 Finished femoral stems: 1.77 kg (Output/Product)\\n  - Recyclable Ti6Al4V powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Recovered Material)\\n  - waste Ti6Al4V powder: 0.0208 kg (Output/Waste)\\n  - electricity: 147.26 kWh (Input/Process Energy)\\n  - argon: 3.03 J (Input/Gas)\\n  - argon: 25.94 kg (Input/Gas)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 9\\nScopes: 1, Flows: 8, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 20 units of Ti6Al4V femoral stems via SLM\\n\\nRecorded Flows:\\n  - Ti6Al4V powder: 20.83 kg (Input/Raw Material)\\n  - 20 Finished femoral stems: 1.77 kg (Output/Product)\\n  - Recyclable Ti6Al4V powder: 18.99 kg (Output/Recovered Material)\\n  - Ti6Al4V scrap: 0.019 kg (Output/Recovered Material)\\n  - waste Ti6Al4V powder: 0.0208 kg (Output/Waste)\\n  - electricity: 147.26 kWh (Input/Process Energy)\\n  - argon: 3.03 kg (Input/Gas)\\n  - argon: 25.94 kg (Input/Gas)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",

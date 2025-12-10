@@ -273,7 +273,7 @@ class LLMChatService:
             llm_response = await self.qwen_service.chat_completion(
                 messages=messages_for_llm,
                 tools=tools,
-                max_tokens=2048,  # 🔥 修复：使用 2048 而不是 1024
+                max_tokens=8192,  # 🔥 足够长以支持多轮工具调用
                 temperature=0.7
             )
             
@@ -317,13 +317,261 @@ class LLMChatService:
                 "error": f"Error processing message: {str(e)}"
             }
     
-    async def _handle_tool_calls(self, session_id: str, assistant_message: Dict[str, Any]) -> Dict[str, Any]:
-        """处理工具调用"""
+    async def stream_chat(self, 
+                          session_id: str, 
+                          user_message: str,
+                          include_tools: bool = True):
+        """
+        流式聊天 - 实时返回 reasoning 和最终响应
+        
+        这是一个混合模式实现：
+        1. 使用 vLLM 流式 API 获取 <think> 内容并实时返回
+        2. 检测到工具调用后，执行工具（非流式）
+        3. 工具执行完后，继续流式生成最终回复
+        
+        Yields:
+            Dict with type: "thinking", "content", "tool_call", "tool_result", "done", "error"
+        """
+        import re
+        
         try:
+            # 检查会话是否存在
+            if session_id not in self.sessions:
+                yield {"type": "error", "error": "Chat session not found"}
+                return
+            
+            session = self.sessions[session_id]
+            session.last_activity = datetime.now()
+            
+            # 解析PDF会话ID
+            pdf_session_id = None
+            clean_message = user_message
+            
+            if user_message.startswith("[PDF_SESSION_ID:"):
+                end_idx = user_message.find("]")
+                if end_idx != -1:
+                    pdf_session_id = user_message[16:end_idx].strip()
+                    clean_message = user_message[end_idx+1:].strip()
+            
+            if not pdf_session_id and session.context.get("pdf_session_id"):
+                pdf_session_id = session.context["pdf_session_id"]
+            
+            if pdf_session_id:
+                session.context["pdf_session_id"] = pdf_session_id
+            
+            # 添加用户消息
+            user_msg = ChatMessage(role="user", content=clean_message)
+            session.messages.append(user_msg)
+            
+            # 准备消息
+            messages_for_llm = []
+            for msg in session.messages:
+                msg_dict = {"role": msg.role, "content": msg.content}
+                if msg.tool_calls:
+                    msg_dict["tool_calls"] = msg.tool_calls
+                messages_for_llm.append(msg_dict)
+            
+            # 准备工具
+            tools = self._get_available_tools() if include_tools else None
+            
+            # 🔥 流式调用 LLM
+            logger.info(f"🌊 开始流式聊天，session_id={session_id}")
+            
+            full_content = ""
+            thinking_content = ""
+            in_thinking = False
+            tool_calls_detected = []
+            
+            # 检查 qwen_service 是否支持流式
+            if hasattr(self.qwen_service, 'stream_chat_completion'):
+                # 使用流式 API
+                async for chunk in self.qwen_service.stream_chat_completion(
+                    messages=messages_for_llm,
+                    tools=tools,
+                    max_tokens=4096,  # 🔥 限制 max_tokens 避免超过模型上下文限制
+                    temperature=0.7
+                ):
+                    chunk_type = chunk.get("type", "content")
+                    
+                    if chunk_type == "content":
+                        content = chunk.get("content", "")
+                        
+                        # 🔥 逐字符处理，正确解析 <think> 标签
+                        for char in content:
+                            full_content += char
+                            
+                            # 检测 <think> 开始
+                            if not in_thinking and full_content.endswith("<think>"):
+                                in_thinking = True
+                                # 不输出 <think> 标签本身
+                                continue
+                            
+                            # 检测 </think> 结束
+                            if in_thinking and full_content.endswith("</think>"):
+                                in_thinking = False
+                                # 移除最后的 </think> 从 thinking_content
+                                if thinking_content.endswith("</think"):
+                                    thinking_content = thinking_content[:-7]
+                                elif thinking_content.endswith("</thin"):
+                                    thinking_content = thinking_content[:-6]
+                                elif thinking_content.endswith("</thi"):
+                                    thinking_content = thinking_content[:-5]
+                                elif thinking_content.endswith("</th"):
+                                    thinking_content = thinking_content[:-4]
+                                elif thinking_content.endswith("</t"):
+                                    thinking_content = thinking_content[:-3]
+                                elif thinking_content.endswith("</"):
+                                    thinking_content = thinking_content[:-2]
+                                elif thinking_content.endswith("<"):
+                                    thinking_content = thinking_content[:-1]
+                                continue
+                            
+                            if in_thinking:
+                                # 在 thinking 中，但不输出可能是标签的部分
+                                if not full_content.endswith(("<", "</", "</t", "</th", "</thi", "</thin", "</think")):
+                                    thinking_content += char
+                                    yield {"type": "thinking", "content": char}
+                            else:
+                                # 普通内容，但不输出可能是标签的部分
+                                if not full_content.endswith(("<", "<t", "<th", "<thi", "<thin", "<think")):
+                                    yield {"type": "content", "content": char}
+                    
+                    elif chunk_type == "tool_call":
+                        tool_call = chunk.get("tool_call", {})
+                        tool_calls_detected.append(tool_call)
+                        yield {"type": "tool_call", "tool_call": tool_call}
+                    
+                    elif chunk_type == "final":
+                        # 流式完成
+                        pass
+                
+                # 处理工具调用
+                if tool_calls_detected:
+                    logger.info(f"🔧 检测到 {len(tool_calls_detected)} 个工具调用，开始执行...")
+                    
+                    # 执行工具调用
+                    for tool_call in tool_calls_detected:
+                        tool_name = tool_call.get("tool_name")
+                        parameters = tool_call.get("parameters", {})
+                        
+                        yield {"type": "tool_executing", "tool_name": tool_name}
+                        
+                        # 执行工具
+                        tool_result = await self._execute_tool(session_id, tool_name, parameters)
+                        
+                        yield {
+                            "type": "tool_result",
+                            "tool_name": tool_name,
+                            "result": tool_result
+                        }
+                    
+                    # 工具执行完成后，让 LLM 生成总结
+                    # 这里使用非流式，因为工具结果需要完整处理
+                    summary_result = await self._generate_tool_summary(session_id, tool_calls_detected)
+                    
+                    yield {
+                        "type": "content",
+                        "content": summary_result.get("message", "")
+                    }
+                
+                # 保存助手消息
+                # 清理 thinking 标签
+                clean_content = re.sub(r'<think>.*?</think>', '', full_content, flags=re.DOTALL).strip()
+                
+                assistant_msg = ChatMessage(role="assistant", content=clean_content)
+                session.messages.append(assistant_msg)
+                
+                yield {
+                    "type": "done",
+                    "session_id": session_id,
+                    "full_content": clean_content,
+                    "thinking": thinking_content
+                }
+            
+            else:
+                # 降级：使用非流式 API，但模拟流式输出
+                logger.info("⚠️ qwen_service 不支持流式，使用非流式降级")
+                
+                result = await self.chat(session_id, user_message, include_tools)
+                
+                if result.get("success"):
+                    # 模拟流式输出 thinking
+                    if result.get("thinking"):
+                        yield {"type": "thinking", "content": result["thinking"]}
+                    
+                    # 模拟流式输出 content
+                    content = result.get("message", "")
+                    # 分块输出
+                    chunk_size = 50
+                    for i in range(0, len(content), chunk_size):
+                        yield {"type": "content", "content": content[i:i+chunk_size]}
+                    
+                    yield {
+                        "type": "done",
+                        "session_id": session_id,
+                        "full_content": content,
+                        "thinking": result.get("thinking", "")
+                    }
+                else:
+                    yield {"type": "error", "error": result.get("error", "Unknown error")}
+                    
+        except Exception as e:
+            logger.error(f"流式聊天失败: {e}", exc_info=True)
+            yield {"type": "error", "error": str(e)}
+    
+    async def _generate_tool_summary(self, session_id: str, tool_calls: list) -> Dict[str, Any]:
+        """让 LLM 根据工具执行结果生成总结"""
+        try:
+            session = self.sessions[session_id]
+            
+            # 准备消息
+            messages = []
+            for msg in session.messages:
+                messages.append({"role": msg.role, "content": msg.content})
+            
+            # 调用 LLM 生成总结（不带工具）
+            result = await self.qwen_service.chat_completion(
+                messages=messages,
+                tools=None,  # 不带工具，让 LLM 生成自然语言总结
+                max_tokens=2048,
+                temperature=0.7
+            )
+            
+            if result.get("success"):
+                return {"message": result["message"].get("content", "")}
+            else:
+                return {"message": "Tool execution completed."}
+                
+        except Exception as e:
+            logger.error(f"生成工具总结失败: {e}")
+            return {"message": "Tool execution completed."}
+    
+    async def _handle_tool_calls(self, session_id: str, assistant_message: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
+        """处理工具调用
+        
+        Args:
+            depth: 递归深度，用于防止无限循环
+        """
+        try:
+            # 🔥 递归深度限制
+            MAX_DEPTH = 5
+            if depth >= MAX_DEPTH:
+                logger.warning(f"⚠️ [SYSTEM_DEFENSE] 递归深度达到限制 ({depth}/{MAX_DEPTH})，强制停止")
+                return {
+                    "success": True,
+                    "session_id": session_id,
+                    "message": (
+                        "✅ I have completed the data extraction process.\n\n"
+                        "Multiple tool calls have been executed. Please check the session summary for all recorded data."
+                    ),
+                    "message_type": "tool_response",
+                    "tool_results": []
+                }
+            
             session = self.sessions[session_id]
             tool_calls = assistant_message.get("tool_calls", [])
             
-            logger.info(f"🛠️ 开始处理工具调用，工具数量: {len(tool_calls)}")
+            logger.info(f"🛠️ 开始处理工具调用，工具数量: {len(tool_calls)}，递归深度: {depth}")
             
             # 添加助手的工具调用消息
             # 🔥 代码层防御：如果调用了工具，强制清空 content（避免输出描述性文字到前端）
@@ -340,6 +588,27 @@ class LLMChatService:
             elif not content.strip():
                 # 没有工具调用，但 content 为空（异常情况）
                 content = "[Processing...]"
+            
+            # 🔥🔥🔥 关键防御：限制单次工具调用数量并去重
+            if len(tool_calls) > 10:
+                logger.warning(f"⚠️ [SYSTEM_DEFENSE] 单次生成了 {len(tool_calls)} 个工具调用，限制为前 10 个")
+                tool_calls = tool_calls[:10]
+            
+            # 去重：相同的工具+参数只保留第一个
+            seen_calls = set()
+            unique_tool_calls = []
+            for tc in tool_calls:
+                # 创建唯一标识
+                call_key = (tc.get("tool_name"), str(sorted(tc.get("parameters", {}).items())))
+                if call_key not in seen_calls:
+                    seen_calls.add(call_key)
+                    unique_tool_calls.append(tc)
+                else:
+                    logger.warning(f"⚠️ [SYSTEM_DEFENSE] 跳过重复的工具调用: {tc.get('tool_name')}")
+            
+            if len(unique_tool_calls) < len(tool_calls):
+                logger.warning(f"⚠️ [SYSTEM_DEFENSE] 去重后工具调用数: {len(tool_calls)} -> {len(unique_tool_calls)}")
+                tool_calls = unique_tool_calls
             
             assistant_msg = ChatMessage(
                 role="assistant",
@@ -516,35 +785,27 @@ class LLMChatService:
                 )
                 session.messages.append(tool_msg)
             
-            # 让LLM继续处理（可能调用更多工具或总结结果）
+            # 🔥🔥🔥 关键修复：不添加 Continue Prompt！
+            # 训练数据格式：<tool_response>...</tool_response> 后面直接是 <|im_start|>assistant
+            # 如果我们添加 Continue Prompt（role=user），会破坏这个模式，导致模型幻觉
+            
+            # 构建消息列表：system + 最近对话（包括刚添加的 tool 结果）
             summary_messages = []
-            for msg in session.messages[-10:]:  # 取最近10条消息作为上下文
+            # 先添加 system message
+            for msg in session.messages:
+                if msg.role == "system":
+                    summary_messages.append({"role": msg.role, "content": msg.content})
+                    break
+            # 再添加最近的对话消息（不过滤 system，因为上面已经添加了）
+            for msg in session.messages[-15:]:  # 增加到15条以包含更多上下文
                 if msg.role != "system":
                     summary_messages.append({"role": msg.role, "content": msg.content})
-            
-            # 🔥 Continue Prompt：简洁版
-            continue_prompt = """You have received tool results.
 
-Next steps:
-- If you found relevant data: Record it using appropriate tools
-- If you need more data: Search again with different keywords
-- After recording: Provide a natural language summary to the user
-
-Important:
-- Extract exact values from documents (no estimation)
-- Provide selected_chunk when recording from documents
-- Do not output raw JSON to users
-
-Act now."""
-
-            logger.info(f"🔍 让 LLM 继续处理工具结果（可能调用更多工具），上下文消息数: {len(summary_messages)}")
+            logger.info(f"🔍 让 LLM 继续处理工具结果（不添加 Continue Prompt），上下文消息数: {len(summary_messages)}")
             summary_response = await self.qwen_service.chat_completion(
-                messages=summary_messages + [{
-                    "role": "user",
-                    "content": continue_prompt
-                }],
-                tools=self._get_available_tools(),  # 🔥 关键：传递工具列表，让 LLM 可以继续调用
-                max_tokens=2048,
+                messages=summary_messages,  # 🔥 不添加额外的 user 消息！
+                tools=self._get_available_tools(),
+                max_tokens=8192,
                 temperature=0.7
             )
             
@@ -555,9 +816,9 @@ Act now."""
                 
                 # 🔥 关键改进：检查 LLM 是否要继续调用工具
                 if assistant_response.get("tool_calls"):
-                    logger.info(f"🔄 LLM 要继续调用 {len(assistant_response['tool_calls'])} 个工具，递归处理...")
+                    logger.info(f"🔄 LLM 要继续调用 {len(assistant_response['tool_calls'])} 个工具，递归处理 (depth={depth+1})...")
                     # 递归调用 _handle_tool_calls，让 LLM 可以多轮调用工具
-                    return await self._handle_tool_calls(session_id, assistant_response)
+                    return await self._handle_tool_calls(session_id, assistant_response, depth=depth+1)
                 else:
                     # LLM 决定不再调用工具，返回最终响应
                     summary_content = assistant_response["content"]

@@ -250,6 +250,55 @@ def send_llm_message(llm_session_id: str, message: str, pdf_session_id: str = No
             "error": f"请求过程中出错: {str(e)}"
         }
 
+def send_llm_message_stream(llm_session_id: str, message: str, pdf_session_id: str = None):
+    """
+    流式发送消息给LLM
+    
+    Yields:
+        Dict with type: "thinking", "content", "tool_call", "done", "error"
+    """
+    import json
+    
+    try:
+        payload = {
+            "session_id": llm_session_id,
+            "message": message
+        }
+        
+        if pdf_session_id:
+            payload["message"] = f"[PDF_SESSION_ID: {pdf_session_id}] {message}"
+        
+        # 使用流式请求
+        response = requests.post(
+            f"{BACKEND_URL}/chat/stream",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            stream=True
+        )
+        
+        if response.status_code != 200:
+            yield {"type": "error", "error": f"请求失败: {response.status_code}"}
+            return
+        
+        # 解析 SSE 流
+        buffer = ""
+        for line in response.iter_lines(decode_unicode=True):
+            if line:
+                if line.startswith("event:"):
+                    event_type = line[6:].strip()
+                elif line.startswith("data:"):
+                    data = line[5:].strip()
+                    try:
+                        parsed = json.loads(data)
+                        parsed["type"] = event_type if event_type else parsed.get("type", "content")
+                        yield parsed
+                    except json.JSONDecodeError:
+                        pass
+                    event_type = None
+                    
+    except Exception as e:
+        yield {"type": "error", "error": str(e)}
+
 # ==================== MAIN INTERFACE ====================
 
 # Title section
@@ -420,27 +469,66 @@ if st.session_state.session_id and st.session_state.mode:
                 "content": user_input
             })
             
-            with st.spinner("AI thinking..."):
-                result = send_llm_message(
-                    llm_session_id=st.session_state.llm_session_id, 
+            # 🔥 流式显示
+            with st.chat_message("assistant"):
+                # 使用两个独立的占位符
+                thinking_placeholder = st.empty()
+                content_placeholder = st.empty()
+                
+                thinking_text = ""
+                content_text = ""
+                tool_results = []
+                is_thinking = True  # 开始时假设在 thinking
+                
+                for chunk in send_llm_message_stream(
+                    llm_session_id=st.session_state.llm_session_id,
                     message=user_input,
                     pdf_session_id=st.session_state.session_id
-                )
-            
-            if result.get("success"):
+                ):
+                    chunk_type = chunk.get("type", "")
+                    
+                    if chunk_type == "thinking":
+                        thinking_text += chunk.get("content", "")
+                        # 实时更新思考过程（展开状态）
+                        thinking_placeholder.markdown(f"💭 **Thinking...**\n\n{thinking_text}")
+                    
+                    elif chunk_type == "content":
+                        # 第一次收到 content 时，折叠 thinking
+                        if is_thinking and thinking_text:
+                            is_thinking = False
+                            # 折叠思考过程
+                            with thinking_placeholder.expander("💭 Thinking Process", expanded=False):
+                                st.text(thinking_text)
+                        
+                        content_text += chunk.get("content", "")
+                        # 实时更新内容
+                        content_placeholder.markdown(content_text)
+                    
+                    elif chunk_type == "tool_call":
+                        tool_call = chunk.get("tool_call", {})
+                        st.info(f"🔧 Calling tool: {tool_call.get('tool_name', 'unknown')}")
+                    
+                    elif chunk_type == "tool_result":
+                        tool_results.append(chunk)
+                    
+                    elif chunk_type == "done":
+                        # 完成时确保 thinking 被折叠
+                        if thinking_text and is_thinking:
+                            with thinking_placeholder.expander("💭 Thinking Process", expanded=False):
+                                st.text(thinking_text)
+                    
+                    elif chunk_type == "error":
+                        st.error(f"Error: {chunk.get('error', 'Unknown error')}")
+                        content_text = f"Error: {chunk.get('error', 'Unknown error')}"
+                
+                # 保存到历史（不包含 thinking 在 content 里）
                 assistant_msg = {
                     "role": "assistant",
-                    "content": result.get("message", ""),
-                    "thinking": result.get("thinking", ""),  # 🔥 新增：思考过程
-                    "tool_results": result.get("tool_results")
+                    "content": content_text.strip(),
+                    "thinking": thinking_text.strip(),
+                    "tool_results": tool_results if tool_results else None
                 }
                 st.session_state.llm_chat_history.append(assistant_msg)
-            else:
-                error_msg = {
-                    "role": "assistant", 
-                    "content": f"Error: {result.get('error', 'Unknown error')}"
-                }
-                st.session_state.llm_chat_history.append(error_msg)
             
             st.rerun()
         

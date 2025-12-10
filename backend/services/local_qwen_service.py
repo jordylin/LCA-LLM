@@ -9,7 +9,8 @@ import json
 import torch
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
-from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig, BitsAndBytesConfig
+from peft import PeftModel
 import re
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,8 @@ def extract_title_from_first_chunk(first_chunk_content: str) -> Optional[str]:
 class LocalQwenService:
     """本地Qwen3-8B服务"""
     
-    def __init__(self, model_path: str = None, device: str = "auto", session_manager=None):
+    def __init__(self, model_path: str = None, device: str = "auto", session_manager=None, 
+                 lora_path: str = None, use_lora: bool = True):
         """
         初始化本地Qwen服务
         
@@ -72,8 +74,12 @@ class LocalQwenService:
             model_path: 模型路径，默认使用项目内的Qwen3-8B
             device: 计算设备，auto/cuda/cpu
             session_manager: 会话管理器（用于获取文档信息）
+            lora_path: LoRA适配器路径，默认使用微调后的lca_lora
+            use_lora: 是否使用LoRA适配器
         """
         self.model_path = model_path or "/home/Research_work/24_yzlin/LCA-LLM/models/Qwen3-8B"
+        self.lora_path = lora_path or "/home/Research_work/24_yzlin/LCA-LLM/models/lca_lora"
+        self.use_lora = use_lora
         self.device = self._setup_device(device)
         self.session_manager = session_manager  # ✅ 保存 session_manager
         self.tokenizer = None
@@ -82,6 +88,8 @@ class LocalQwenService:
         self.is_initialized = False
         
         logger.info(f"LocalQwenService初始化，模型路径: {self.model_path}, 设备: {self.device}")
+        if self.use_lora:
+            logger.info(f"LoRA适配器路径: {self.lora_path}")
     
     def _setup_device(self, device: str) -> str:
         """设置计算设备"""
@@ -109,18 +117,59 @@ class LocalQwenService:
             )
             logger.info("Tokenizer加载完成")
             
-            # 加载模型
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map="auto" if self.device == "cuda" else None,
-                trust_remote_code=True
-            )
-            
-            if self.device == "cpu":
+            # 加载模型（支持4-bit量化）
+            if self.device == "cuda":
+                # 检测可用显存
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                free_memory = torch.cuda.mem_get_info()[0] / (1024**3)
+                logger.info(f"检测到 GPU 显存: {gpu_memory:.1f} GB, 空闲: {free_memory:.1f} GB")
+                
+                # 4-bit 量化的 Qwen3-8B 大约需要 5-6GB 显存
+                if free_memory < 6:
+                    # 显存不足，使用 8-bit 量化 + CPU offload
+                    logger.warning(f"⚠️ 空闲显存不足 ({free_memory:.1f}GB < 6GB)，使用 8-bit 量化")
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_8bit=True,
+                        llm_int8_enable_fp32_cpu_offload=True
+                    )
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_path,
+                        quantization_config=bnb_config,
+                        device_map="auto",
+                        trust_remote_code=True
+                    )
+                else:
+                    # 显存足够，使用 4-bit 量化
+                    logger.info("使用 4-bit 量化加载模型")
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_compute_dtype=torch.float16
+                    )
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_path,
+                        quantization_config=bnb_config,
+                        device_map="auto",
+                        trust_remote_code=True
+                    )
+            else:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path,
+                    torch_dtype=torch.float32,
+                    trust_remote_code=True
+                )
                 self.model = self.model.to(self.device)
             
-            logger.info("模型加载完成")
+            logger.info("基座模型加载完成")
+            
+            # 加载LoRA适配器
+            if self.use_lora and Path(self.lora_path).exists():
+                logger.info(f"正在加载LoRA适配器: {self.lora_path}")
+                self.model = PeftModel.from_pretrained(self.model, self.lora_path)
+                logger.info("✅ LoRA适配器加载成功！模型已增强为LCA专家模式")
+            elif self.use_lora:
+                logger.warning(f"⚠️ LoRA路径不存在: {self.lora_path}，使用基座模型")
             
             # 设置生成配置
             self.generation_config = GenerationConfig.from_pretrained(
@@ -129,7 +178,7 @@ class LocalQwenService:
             )
             
             # 调整生成参数
-            self.generation_config.max_new_tokens = 2048
+            self.generation_config.max_new_tokens = 8192  # 足够长以支持多轮工具调用
             self.generation_config.temperature = 0.7
             self.generation_config.top_p = 0.8
             self.generation_config.do_sample = True
@@ -174,6 +223,10 @@ class LocalQwenService:
             self.generation_config.max_new_tokens = max_tokens
             self.generation_config.temperature = temperature
             
+            # 🔥 不再使用 StoppingCriteria 停止生成
+            # 原因：过早停止会导致有效内容被截断
+            # 改为：让模型完整生成，然后在后处理中清理 <tool_response> 幻觉
+            
             # 生成响应
             with torch.no_grad():
                 outputs = self.model.generate(
@@ -188,10 +241,34 @@ class LocalQwenService:
                 skip_special_tokens=True
             )
             
-            logger.info(f"📝 LLM 原始响应（前200字符）: {response[:200]}")
+            # 🔥 全面清理 tool_response 幻觉（模型不应该生成这些）
+            # 1. 清理响应开头的残留
+            response = re.sub(r'^[^<]*</tool_response>', '', response, flags=re.DOTALL).strip()
+            # 2. 清理所有 <tool_response>...</tool_response> 块
+            original_len = len(response)
+            response = re.sub(r'<tool_response>.*?</tool_response>', '', response, flags=re.DOTALL).strip()
+            # 3. 清理孤立的 <tool_response> 或 </tool_response> 标签
+            response = re.sub(r'</?tool_response>', '', response).strip()
+            
+            if len(response) < original_len:
+                logger.warning(f"⚠️ 清理了 {original_len - len(response)} 字符的 tool_response 幻觉")
+            
+            # 如果清理后响应太短且无有效内容，生成默认总结
+            if len(response) < 50 and '<think>' not in response and '<tool_call>' not in response:
+                logger.warning(f"⚠️ 响应过短或无效 ({len(response)} 字符)，使用默认总结")
+                response = "I have completed the requested operations. The data has been recorded successfully. Please check the session summary for details."
+            
+            # 🔥 详细日志：打印完整响应以便调试
+            print(f"\n{'='*80}")
+            print(f"📝 LLM 完整原始响应 (长度: {len(response)} 字符):")
+            print(f"{'='*80}")
+            print(response[:2000] if len(response) > 2000 else response)
+            if len(response) > 2000:
+                print(f"... [截断，总长度 {len(response)}]")
+            print(f"{'='*80}\n")
+            logger.info(f"📝 LLM 原始响应长度: {len(response)} 字符")
             
             # 🔥 解析思考过程（<think> 标签）
-            import re
             thinking_content = ""
             actual_response = response.strip()
             
@@ -201,21 +278,44 @@ class LocalQwenService:
             
             if think_match:
                 thinking_content = think_match.group(1).strip()
+                
+                # 🔥 清理思考内容中的幻觉 tool_response（模型不应该生成这些）
+                if '<tool_response>' in thinking_content:
+                    logger.warning(f"⚠️ 检测到思考内容中包含幻觉的 tool_response，正在清理...")
+                    thinking_content = re.sub(r'<tool_response>.*?</tool_response>', '', thinking_content, flags=re.DOTALL).strip()
+                
                 # 移除所有 <think>...</think> 标签对
                 actual_response = re.sub(think_pattern, '', response, flags=re.DOTALL).strip()
                 # 移除孤立的 </think> 标签（格式错误的情况）
                 actual_response = re.sub(r'</think>', '', actual_response, flags=re.IGNORECASE).strip()
+                # 🔥 清理响应中的幻觉 tool_response
+                actual_response = re.sub(r'<tool_response>.*?</tool_response>', '', actual_response, flags=re.DOTALL).strip()
+                
+                # 🔥 打印完整的思考过程（不截断）
+                print(f"\n{'='*80}")
+                print(f"💭 完整思考过程 (长度: {len(thinking_content)} 字符):")
+                print(f"{'='*80}")
+                print(thinking_content)
+                print(f"{'='*80}\n")
                 logger.info(f"💭 检测到思考过程，长度: {len(thinking_content)} 字符")
             
             # 解析工具调用（使用清理后的响应）
             tool_calls = self._parse_tool_calls(actual_response) if tools else None
+            
+            # 🔥 打印解析到的工具调用
+            if tool_calls:
+                print(f"🔧 解析到 {len(tool_calls)} 个工具调用:")
+                for i, tc in enumerate(tool_calls):
+                    print(f"   [{i+1}] {tc.get('tool_name')}: {json.dumps(tc.get('parameters', {}), ensure_ascii=False)[:200]}")
+                logger.info(f"🔧 解析到 {len(tool_calls)} 个工具调用: {[tc.get('tool_name') for tc in tool_calls]}")
+            else:
+                print(f"ℹ️  没有解析到工具调用")
             
             # 🔥 进一步清理：如果有工具调用，从响应中移除 <tool_call> 标签
             clean_content = actual_response
             if tool_calls:
                 clean_content = re.sub(r'<tool_call>.*?</tool_call>', '', actual_response, flags=re.DOTALL).strip()
                 logger.info(f"🧹 清理工具调用标签后，content 长度: {len(clean_content)} (原始: {len(actual_response)})")
-                logger.info(f"🧹 清理后的 content（前200字符）: {clean_content[:200]}")
             
             result = {
                 "success": True,
@@ -264,24 +364,43 @@ class LocalQwenService:
                     logger.info(f"📝 检测到 standalone 模式")
                 break
         
-        system_prompt = """You are an LCA (Life Cycle Assessment) specialist assistant with access to document analysis tools.
+        # 🔥 与训练数据一致的 System Prompt
+        system_prompt = """You are an expert LCA assistant for Additive Manufacturing.
 
-Use tools to extract and record data from documents.
+## Core Task
+Extract quantitative LCI data from documents or answer specific questions.
 
-**AVAILABLE TOOLS**:
-• search_document(query) - Search for one keyword
-• search_document(queries) - Batch search for multiple related keywords (saves tokens)
-• record_parameter(parameter_name, parameter_value, selected_chunk, parameter_unit) - Record raw parameter values
-• record_calculation(expression, result, unit, data_dependencies) - Record calculations
-• record_process_flow(flow_type, category, name, value, unit, selected_chunk, link_to) - Record LCI inventory data
-• get_session_summary() - View all recorded data
-• execute_calculation(expression, variables) - Verify calculations
-• record_pivot_failure(failed_query) - Record failed searches
+## Tools
+- search_document: Search text segments containing data via keywords
+- define_lca_scope: Record Functional Unit
+- record_process_flow: Record LCI flows (quantitative values)
+- record_parameter: Record intermediate parameters for calculation
+- execute_calculation: Calculate derived values
+- get_session_summary: Check recorded data
 
-**IMPORTANT**:
-- Extract exact values from documents (no estimation)
-- Provide selected_chunk when recording data from documents
-- Session ID is automatically injected"""
+## Strategic Workflow
+1. **Anchor (Functional Unit)**: Identify the study basis (e.g., "manufacturing a 316L impeller by SLM"). Record via `define_lca_scope`.
+2. **Inputs**: Extract Material, Energy, Gas, Cooling. Use `record_process_flow` or `record_parameter`.
+3. **Outputs**: Extract Waste, Emissions. **Crucial**: Record Product quantitative flow here via `record_process_flow`.
+4. **Validation** (Optional): Check completeness for full inventory tasks.
+*For short QA: Jump directly to the requested info.*
+
+## LCI Categories (11 types)
+**Input**: Raw Material, Process Energy, Post-processing Energy, Feedstock Energy, Gas, Cooling Media
+**Output**: Product, Recovered Material, Waste, Emission
+**Scope**: Functional Unit
+
+## Key Guidelines
+1. **Batch Search**: Always combine related keywords (e.g., `["electricity", "power"]`) in one search.
+2. **Calc vs Record**: 
+   - Explicit data (e.g., "120 kWh") → `record_process_flow`
+   - Needs calculation (e.g., "500W, 2h") → `record_parameter` + `execute_calculation` → `record_process_flow`
+3. **Energy Classification**:
+   - *Process*: Printing/Machine operation
+   - *Post-processing*: Heat treatment/Machining
+   - *Feedstock*: Powder production
+4. **Note Field**: Use for context (e.g., "SLM machine", "Atomization") to distinguish same-name flows or key qualifiers (e.g., "99.9% purity", "recycled") to enrich flows.
+5. **Session ID**: Automatically injected - do not ask user for it."""
         
         # 🔥 动态注入文档上下文（如果有 PDF）
         if pdf_session_id:
@@ -358,8 +477,8 @@ You do NOT need to ask the user for session_id. Just call the tools directly wit
         prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
         
         # 🔥 调试：打印 System Prompt 关键部分以验证
-        if "GENERAL WORKFLOW LOGIC" in system_prompt:
-            print(f"\n✅ 使用简化版 System Prompt (包含 GENERAL WORKFLOW LOGIC)\n", flush=True)
+        if "Strategic Workflow" in system_prompt:
+            print(f"\n✅ 使用训练数据一致的 System Prompt (包含 Strategic Workflow)\n", flush=True)
         else:
             print(f"\n⚠️ 使用旧版 System Prompt\n", flush=True)
         

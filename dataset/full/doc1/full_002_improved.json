@@ -218,7 +218,7 @@
               "category": "Process Energy",
               "name": "Electricity",
               "value": 64.92,
-              "unit": "kg",
+              "unit": "kWh",
               "selected_chunk": {
                 "chunk_id": "7",
                 "content": "## Table 2.2\n\n| Process Stage | Equipment | Energy Consumption | Unit | Power Rating |\n|---|---|---|---|---|\n| Powder Production | Water Atomization Unit | 2.55 | kWh | 25 kW nominal |\n| Additive Manufacturing | SLM System (EOS M 290) | 64.92 | kWh | Laser On: 5.5 kW, Standby: 3.5 kW |\n"
@@ -230,7 +230,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"message\": \"Successfully recorded process flow: electricity\",\n  \"data\": {\n    \"record_id\": \"692694e7d9086875325fc24f\",\n    \"action_id\": \"ACT_0006\",\n    \"session_id\": \"18c29254-8c82-4e30-9d34-11d94cdd740c\",\n    \"flow_type\": \"Input\",\n    \"category\": \"Process Energy\",\n    \"name\": \"electricity\",\n    \"value\": 64.92,\n    \"unit\": \"kg\"\n  }\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"message\": \"Successfully recorded process flow: electricity\",\n  \"data\": {\n    \"record_id\": \"692694e7d9086875325fc24f\",\n    \"action_id\": \"ACT_0006\",\n    \"session_id\": \"18c29254-8c82-4e30-9d34-11d94cdd740c\",\n    \"flow_type\": \"Input\",\n    \"category\": \"Process Energy\",\n    \"name\": \"electricity\",\n    \"value\": 64.92,\n    \"unit\": \"kWh\"\n  }\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -337,7 +337,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 6\\nScopes: 1, Flows: 5, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 33 316L stainless steel flat washer by SLM\\n\\nRecorded Flows:\\n  - Stainless Steel : 4.11 kg (Input/Raw Material)\\n  - Water: 16.8 kg (Input/Cooling Media)\\n  - Argon: 3.08 kg (Input/Gas)\\n  - electricity: 2.55 kWh (Input/Feedstock Energy)\\n  - electricity: 64.92 kg (Input/Process Energy)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 6\\nScopes: 1, Flows: 5, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 33 316L stainless steel flat washer by SLM\\n\\nRecorded Flows:\\n  - Stainless Steel : 4.11 kg (Input/Raw Material)\\n  - Water: 16.8 kg (Input/Cooling Media)\\n  - Argon: 3.08 kg (Input/Gas)\\n  - electricity: 2.55 kWh (Input/Feedstock Energy)\\n  - electricity: 64.92 kWh (Input/Process Energy)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",
@@ -577,7 +577,7 @@
       },
       {
         "role": "tool",
-        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 11\\nScopes: 1, Flows: 10, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 33 316L stainless steel flat washer by SLM\\n\\nRecorded Flows:\\n  - Stainless Steel : 4.11 kg (Input/Raw Material)\\n  - Water: 16.8 kg (Input/Cooling Media)\\n  - Argon: 3.08 kg (Input/Gas)\\n  - electricity: 2.55 kWh (Input/Feedstock Energy)\\n  - electricity: 64.92 kg (Input/Process Energy)\\n  - 33 units of flat washer: 0.61 kg (Output/Product)\\n  - 316L Powder: 2.94 kg (Output/Recovered Material)\\n  - 316L Powder: 0.15 kg (Output/Recovered Material)\\n  - stainless steel scrap: 0.41 kg (Output/Waste)\\n  - 316L Powder: 0.01 kg (Output/Waste)\\n\"\n}\n</tool_response>"
+        "content": "<tool_response>\n{\n  \"success\": true,\n  \"summary\": \"Total Actions: 11\\nScopes: 1, Flows: 10, Parameters: 0\\n\\nLCA Scope:\\n  - Function Unit: Production of 33 316L stainless steel flat washer by SLM\\n\\nRecorded Flows:\\n  - Stainless Steel : 4.11 kg (Input/Raw Material)\\n  - Water: 16.8 kg (Input/Cooling Media)\\n  - Argon: 3.08 kg (Input/Gas)\\n  - electricity: 2.55 kWh (Input/Feedstock Energy)\\n  - electricity: 64.92 kWh (Input/Process Energy)\\n  - 33 units of flat washer: 0.61 kg (Output/Product)\\n  - 316L Powder: 2.94 kg (Output/Recovered Material)\\n  - 316L Powder: 0.15 kg (Output/Recovered Material)\\n  - stainless steel scrap: 0.41 kg (Output/Waste)\\n  - 316L Powder: 0.01 kg (Output/Waste)\\n\"\n}\n</tool_response>"
       },
       {
         "role": "assistant",

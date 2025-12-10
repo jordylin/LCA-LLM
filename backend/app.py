@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import ast
 import operator
@@ -43,6 +44,9 @@ from backend.services.mongodb_manager import initialize_mongodb, mongodb_manager
 from backend.services.tool_service import LCAToolService
 from backend.services.local_qwen_service import LocalQwenService
 from backend.services.llm_chat_service import LLMChatService
+from backend.services.qwen_agent_service import QwenAgentService
+from backend.services.qwen_agent_service_v2 import QwenAgentServiceV2
+from backend.services.vllm_service import VLLMService
 
 # 导入单位API路由
 from backend.api.unit_api import router as unit_router
@@ -197,10 +201,35 @@ tool_service = LCAToolService(
     session_manager=session_manager
 )
 
-# 初始化本地LLM服务（✅ 传递 session_manager）
-local_qwen_service = LocalQwenService(session_manager=session_manager)
+# 🔥 选择 LLM 服务：通过环境变量 LLM_SERVICE 控制
+# LLM_SERVICE=vllm     使用 vLLM 服务（推荐，需要先启动 vLLM 服务器）
+# LLM_SERVICE=qwen_agent 使用 Qwen-Agent 服务
+# LLM_SERVICE=local    使用原有的 LocalQwenService（默认）
+LLM_SERVICE = os.environ.get("LLM_SERVICE", "local").lower()
+
+if LLM_SERVICE == "vllm":
+    logger.info("🚀 使用 vLLM 服务")
+    vllm_api_base = os.environ.get("VLLM_API_BASE", "http://localhost:8080/v1")
+    qwen_service = VLLMService(
+        api_base=vllm_api_base,
+        session_manager=session_manager
+    )
+    qwen_service.set_pdf_processor(pdf_processor)
+elif LLM_SERVICE == "qwen_agent":
+    logger.info("🚀 使用 Qwen-Agent V2 服务 (vLLM + Qwen-Agent)")
+    vllm_api_base = os.environ.get("VLLM_API_BASE", "http://localhost:8080/v1")
+    qwen_service = QwenAgentServiceV2(
+        api_base=vllm_api_base,
+        session_manager=session_manager
+    )
+    qwen_service.set_pdf_processor(pdf_processor)
+    qwen_service.set_tool_service(tool_service)  # 🔥 设置工具服务供 Qwen-Agent 使用
+else:
+    logger.info("🔧 使用原有的 LocalQwenService")
+    qwen_service = LocalQwenService(session_manager=session_manager)
+
 llm_chat_service = LLMChatService(
-    qwen_service=local_qwen_service,
+    qwen_service=qwen_service,
     tool_service=tool_service,
     session_timeout=3600  # 1小时超时
 )
@@ -1382,6 +1411,7 @@ class ChatResponse(BaseModel):
     success: bool
     session_id: Optional[str] = None
     message: Optional[str] = None
+    thinking: Optional[str] = None  # 🔥 新增：思考过程
     message_type: Optional[str] = None
     tool_results: Optional[List[Dict[str, Any]]] = None
     usage: Optional[Dict[str, Any]] = None
@@ -1450,6 +1480,7 @@ async def send_chat_message(request: ChatRequest):
                 success=True,
                 session_id=result["session_id"],
                 message=result["message"],
+                thinking=result.get("thinking"),  # 🔥 新增：思考过程
                 message_type=result.get("message_type", "text"),
                 tool_results=result.get("tool_results"),
                 usage=result.get("usage")
@@ -1466,6 +1497,55 @@ async def send_chat_message(request: ChatRequest):
             success=False,
             error=f"处理消息失败: {str(e)}"
         )
+
+@app.post("/chat/stream")
+async def stream_chat_message(request: ChatRequest):
+    """
+    流式聊天端点 - 实时返回 reasoning 和最终响应
+    
+    使用 Server-Sent Events (SSE) 格式：
+    - event: thinking  - 思考过程片段
+    - event: content   - 最终回复片段
+    - event: tool_call - 工具调用
+    - event: done      - 完成
+    - event: error     - 错误
+    """
+    import json as json_module
+    
+    async def generate_stream():
+        try:
+            # 如果没有提供session_id，自动创建一个
+            if not request.session_id:
+                session_id = llm_chat_service.create_chat_session()
+            else:
+                session_id = request.session_id
+            
+            logger.info(f"🌊 流式聊天开始 - session_id={session_id}")
+            
+            # 调用流式聊天
+            async for chunk in llm_chat_service.stream_chat(
+                session_id=session_id,
+                user_message=request.message,
+                include_tools=request.include_tools
+            ):
+                event_type = chunk.get("type", "content")
+                data = json_module.dumps(chunk, ensure_ascii=False)
+                yield f"event: {event_type}\ndata: {data}\n\n"
+                
+        except Exception as e:
+            logger.error(f"流式聊天失败: {e}")
+            error_data = json_module.dumps({"error": str(e)}, ensure_ascii=False)
+            yield f"event: error\ndata: {error_data}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @app.get("/chat/history/{session_id}", response_model=ChatHistoryResponse)
 async def get_chat_history(session_id: str, limit: int = 20):
