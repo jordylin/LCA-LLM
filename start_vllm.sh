@@ -17,9 +17,9 @@ source lcaLLM/bin/activate
 
 # 模型路径配置
 # 通过环境变量 USE_LORA 控制是否使用 LoRA
-# USE_LORA=1  使用合并后的模型或 LoRA 适配器
-# USE_LORA=0  使用原生模型（默认，用于测试基线效果）
-USE_LORA=${USE_LORA:-0}
+# USE_LORA=1  使用合并后的模型或 LoRA 适配器（默认）
+# USE_LORA=0  使用原生模型（用于测试基线效果）
+USE_LORA=${USE_LORA:-1}
 
 MERGED_MODEL="/home/Research_work/24_yzlin/LCA-LLM/models/Qwen3-8B-LCA-Merged"
 BASE_MODEL="/home/Research_work/24_yzlin/LCA-LLM/models/Qwen3-8B"
@@ -72,15 +72,17 @@ echo "   模型: $MODEL_PATH"
 # --dtype auto: 自动选择数据类型
 # --max-model-len: 最大上下文长度
 # --gpu-memory-utilization: GPU 显存使用率
+# --max-num-seqs: 最大并发序列数（降低以节省显存）
 # --quantization: 量化方式（可选：awq, gptq, squeezellm, fp8）
 python -m vllm.entrypoints.openai.api_server \
     --model "$MODEL_PATH" \
     --served-model-name qwen-lca \
     --host 0.0.0.0 \
     --port $VLLM_PORT \
-    --max-model-len 8192 \
+    --max-model-len 16384 \
     --dtype auto \
-    --gpu-memory-utilization 0.9 \
+    --gpu-memory-utilization 0.85 \
+    --max-num-seqs 64 \
     --trust-remote-code \
     --enable-auto-tool-choice \
     --tool-call-parser hermes \

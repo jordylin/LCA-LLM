@@ -314,6 +314,11 @@ class LCAToolService:
                     "error": "文档尚未处理，请先上传并处理文档"
                 }
             
+            # 🔥 防御性检查：如果 query 是 list，转换为批量模式
+            if isinstance(query, list):
+                queries = query
+                query = None
+            
             # 判断模式：批量 or 单查询
             if queries:
                 # 批量模式：改进版三阶段处理
@@ -1152,6 +1157,14 @@ class LCAToolService:
                             "source_content": {
                                 "type": "string",
                                 "description": "More complete original text context containing the description"
+                            },
+                            "note": {
+                                "type": "string",
+                                "description": "Additional context or notes about this scope definition"
+                            },
+                            "selected_chunk": {
+                                "type": "string",
+                                "description": "The exact text snippet from the document that contains this scope information - IMPORTANT for traceability"
                             }
                         },
                         "required": ["session_id", "parameter_name", "description"]
@@ -1207,6 +1220,14 @@ class LCAToolService:
                             "process_name": {
                                 "type": "string",
                                 "description": "Name of the process step this flow belongs to - provides structural context for LCI data"
+                            },
+                            "note": {
+                                "type": "string",
+                                "description": "Additional context or notes about the flow (e.g., 'SLM machine', 'Atomization process', 'from Table 2')"
+                            },
+                            "selected_chunk": {
+                                "type": "string",
+                                "description": "The exact text snippet from the document that contains this data - IMPORTANT for traceability and matching"
                             }
                         },
                         "required": ["session_id", "flow_type", "category", "name", "value", "unit"]
@@ -1239,18 +1260,12 @@ class LCAToolService:
                                 "description": "Parameter unit, such as 'kW', 'h', 'kg', '°C', 'MPa'"
                             },
                             "selected_chunk": {
-                                "type": "object",
-                                "description": "The selected document chunk containing the parameter (REQUIRED - parameters must have document evidence)",
-                                "properties": {
-                                    "chunk_id": {"type": "string"},
-                                    "content": {"type": "string"},
-                                    "score": {"type": "number"}
-                                },
-                                "required": ["chunk_id", "content"]
-                            },
-                            "search_query": {
                                 "type": "string",
-                                "description": "The search query used to find this parameter"
+                                "description": "The exact text snippet from the document containing this parameter - REQUIRED for traceability"
+                            },
+                            "note": {
+                                "type": "string",
+                                "description": "Additional context or notes about this parameter (e.g., 'from Table 2', 'calculated from figure')"
                             }
                         },
                         "required": ["session_id", "parameter_name", "parameter_value", "selected_chunk"]
@@ -1530,8 +1545,14 @@ class LCAToolService:
         try:
             logger.info(f"记录工艺流: {flow_type}/{category}/{name} for session {session_id}")
             
+            # 🔥 兼容 selected_chunk 为字符串或字典
+            # LLM 可能传递字符串（文档片段文本）或字典（包含 chunk_id）
+            if isinstance(selected_chunk, str):
+                # 将字符串转换为字典格式
+                selected_chunk = {"text": selected_chunk, "chunk_id": None}
+            
             # 🔥 验证数据来源（软性警告，不阻止）
-            has_document_source = selected_chunk and selected_chunk.get("chunk_id")
+            has_document_source = selected_chunk and isinstance(selected_chunk, dict) and selected_chunk.get("chunk_id")
             has_calculation_source = link_to and link_to.startswith("ACT_")
             
             if not has_document_source and not has_calculation_source:
@@ -1857,7 +1878,7 @@ class LCAToolService:
                         session_id: str,
                         parameter_name: str,
                         parameter_value: float,
-                        selected_chunk: Dict[str, Any],
+                        selected_chunk: Union[str, Dict[str, Any]],
                         parameter_unit: str = None,
                         note: str = None,
                         search_query: str = None,
@@ -1873,7 +1894,7 @@ class LCAToolService:
             session_id: 会话ID
             parameter_name: 参数名称，如 "power", "printing_time"（必需）
             parameter_value: 参数值（必需）
-            selected_chunk: 选择的文档块（必需，作为证据）
+            selected_chunk: 选择的文档块（必需，作为证据）- 可以是字符串或字典
             parameter_unit: 参数单位（可选）
             note: 备注信息（可选，用于区分细节）
             search_query: 搜索查询（可选，用于数据收集）
@@ -1884,6 +1905,10 @@ class LCAToolService:
         """
         try:
             logger.info(f"记录参数: {parameter_name} = {parameter_value} {parameter_unit or ''}")
+            
+            # 兼容 selected_chunk 为字符串或字典
+            if isinstance(selected_chunk, str):
+                selected_chunk = {"text": selected_chunk, "chunk_id": None}
             
             # 获取MongoDB连接
             from .mongodb_manager import mongodb_manager

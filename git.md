@@ -13,7 +13,7 @@ git status
 git add -A
 
 # 3. 提交（写清楚改了什么）
-git commit -m "描述你的修改"
+git commit -m "将框架换成Qwen适配框架；融合vLLM框架以加速推理过程；新增流式输出支持"
 
 # 4. 推送到 GitHub
 git push origin main

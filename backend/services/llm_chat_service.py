@@ -120,12 +120,74 @@ class LLMChatService:
         
         logger.info(f"[DEBUG create_chat_session] ChatSession对象创建完成, context={session.context}")
         
-        # 添加系统消息（简化版：只传递动态上下文，角色定义在 local_qwen_service.py 中）
+        # 添加完整的系统消息（包含角色定义和文档上下文）
+        system_content = """You are an expert LCA assistant for Additive Manufacturing.
+
+## Core Task
+Extract quantitative LCI data from documents or answer specific questions.
+When asked to extract LCI data, proactively search and record all available data without waiting for clarification.
+
+## Tools
+- search_document: Search text segments containing data via keywords
+- define_lca_scope: Record Functional Unit
+- record_process_flow: Record LCI flows (quantitative values)
+- record_parameter: Record intermediate parameters for calculation
+- execute_calculation: Calculate derived values
+- get_session_summary: Check recorded data
+
+## Strategic Workflow
+1. **Anchor (Functional Unit)**: Identify the study basis (e.g., "manufacturing a 316L impeller by SLM"). Record via `define_lca_scope`.
+2. **Inputs**: Extract Material, Energy, Gas, Cooling. Use `record_process_flow` or `record_parameter`.
+3. **Outputs**: Extract Waste, Emissions. Record Product quantitative flow here via `record_process_flow`.
+4. **Validation** (Optional): Check completeness for full inventory tasks.
+*For short QA: Jump directly to the requested info.*
+
+## LCI Categories (11 types)
+**Input**: Raw Material, Process Energy, Post-processing Energy, Feedstock Energy, Gas, Cooling Media
+**Output**: Product, Recovered Material, Waste, Emission
+**Scope**: Functional Unit
+
+## Key Guidelines
+1. **Batch Search**: Always combine related keywords (e.g., `["electricity", "power"]`) in one search.
+2. **Calc vs Record**: 
+   - Explicit data (e.g., "120 kWh") -> `record_process_flow`
+   - Needs calculation (e.g., "500W, 2h") -> `record_parameter` + `execute_calculation` -> `record_process_flow`
+3. **Energy Classification**:
+   - *Process*: Printing/Machine operation
+   - *Post-processing*: Heat treatment/Machining
+   - *Feedstock*: Powder production
+4. **Note Field**: Use for context (e.g., "SLM machine", "Atomization") to distinguish same-name flows.
+5. **Session ID**: The system handles it automatically. Just call tools directly.
+6. **Missing Data**: Skip if not found. Do not hallucinate.
+
+**AUTOMATIC SESSION INJECTION**: 
+When you call document-related tools, the system will AUTOMATICALLY inject the session_id.
+You do NOT need to ask the user for session_id. Just call the tools directly."""
+
         if context.get("mode") == "standalone":
-            system_content = "MODE: standalone"
+            system_content += "\n\nMODE: standalone"
         else:
-            # 文档模式：传递 pdf_session_id 给 local_qwen_service.py
-            system_content = f"MODE: document_based\nPDF_SESSION_ID: {pdf_session_id if pdf_session_id else 'none'}"
+            system_content += f"\n\nMODE: document_based\nPDF_SESSION_ID: {pdf_session_id if pdf_session_id else 'none'}"
+            
+            # 🔥 注入文档前几个 chunk 作为上下文，让 LLM 知道文档内容
+            if pdf_session_id and hasattr(self, 'tool_service') and self.tool_service:
+                try:
+                    # 直接从 session_manager 获取知识库（同步方式）
+                    session_data = self.tool_service.session_manager.get_session(pdf_session_id)
+                    if session_data and session_data.knowledge_base:
+                        # 使用空查询获取前几个 chunk
+                        kb = session_data.knowledge_base
+                        # ChromaDB 的 query 方法是同步的
+                        results = kb.query("document content overview", n_results=2)
+                        if results and results.get("documents") and results["documents"][0]:
+                            doc_context = "\n\n**DOCUMENT PREVIEW (first chunks)**:\n"
+                            for i, doc in enumerate(results["documents"][0][:2]):
+                                chunk_text = doc[:500] if doc else ""
+                                doc_context += f"\n[Chunk {i}]: {chunk_text}...\n"
+                            system_content += doc_context
+                            logger.info(f"✅ 已注入文档上下文 ({len(results['documents'][0])} chunks)")
+                except Exception as e:
+                    logger.warning(f"无法获取文档上下文: {e}")
 
         system_message = ChatMessage(
             role="system",
@@ -146,7 +208,7 @@ class LLMChatService:
             
             initial_assistant_message = ChatMessage(
                 role="assistant",
-                content=f"✅ Document successfully processed and ready for analysis!\n\n{doc_details}\n\nI have access to the document content and can search through it to answer your questions. What would you like to know about the document?"
+                content=f"Document successfully processed and ready for analysis.\n\n{doc_details}\n\nI have access to the document content and can search through it to answer your questions. What would you like to know about the document?"
             )
             session.messages.append(initial_assistant_message)
             logger.warning(f"✅ 已添加初始助手消息确认文档就绪 (pdf_session_id: {pdf_session_id[:8]}...)")
@@ -172,8 +234,7 @@ class LLMChatService:
             Dict[str, Any]: 聊天响应
         """
         try:
-            logger.warning(f"🚀🚀🚀 chat() 函数被调用 - session_id={session_id}, user_message前20字={user_message[:20] if user_message else 'None'}")
-            print(f"🚀🚀🚀 chat() 函数被调用 - session_id={session_id}")
+            logger.info(f"🚀 chat() - session_id={session_id[:20]}...")
             
             # 检查会话是否存在
             if session_id not in self.sessions:
@@ -185,8 +246,7 @@ class LLMChatService:
             session = self.sessions[session_id]
             session.last_activity = datetime.now()
             
-            logger.warning(f"📦 会话对象获取成功, context={session.context}")
-            print(f"📦 会话对象获取成功, context={session.context}")
+            logger.info(f"📦 会话上下文: mode={session.context.get('mode')}")
             
             # 解析PDF会话ID（如果存在）- 支持多种格式
             pdf_session_id = None
@@ -210,8 +270,7 @@ class LLMChatService:
                 session.context["pdf_session_id"] = pdf_session_id
             
             # 调试日志
-            logger.warning(f"[DEBUG] pdf_session_id={pdf_session_id}, mode={session.context.get('mode')}")
-            print(f"[DEBUG] pdf_session_id={pdf_session_id}, mode={session.context.get('mode')}")
+            # pdf_session_id 已在上下文中
             
             # 注意：文档上下文已经在create_chat_session时包含在初始system prompt中
             # 不需要在这里再添加额外的消息
@@ -223,9 +282,8 @@ class LLMChatService:
             # 准备对话历史（排除系统消息进行API调用）
             messages_for_llm = []
             
-            logger.warning(f"📝 会话中的总消息数: {len(session.messages)}")
-            for idx, msg in enumerate(session.messages):
-                logger.warning(f"  消息{idx}: role={msg.role}, content前30字={msg.content[:30] if msg.content else 'None'}...")
+            logger.info(f"📝 会话消息数: {len(session.messages)}")
+            for msg in session.messages:
                 msg_dict = {"role": msg.role, "content": msg.content}
                 if msg.tool_calls:
                     msg_dict["tool_calls"] = msg.tool_calls
@@ -235,46 +293,16 @@ class LLMChatService:
             tools = None
             if include_tools:
                 tools = self._get_available_tools()
-                logger.warning(f"🛠️  LLM 可用工具数量: {len(tools)}")
-                # 检查 search_document 的 required 字段
-                for tool in tools:
-                    if tool.get("function", {}).get("name") == "search_document":
-                        required = tool.get("function", {}).get("parameters", {}).get("required", [])
-                        logger.warning(f"🔍 search_document 的 required 字段: {required}")
             
-            # 调试：打印发送给LLM的消息
-            logger.warning(f"📨 发送给LLM的消息数量: {len(messages_for_llm)}")
-            print(f"📨 发送给LLM的消息数量: {len(messages_for_llm)}")
-            if messages_for_llm:
-                first_msg = messages_for_llm[0]
-                logger.warning(f"📨 第一条消息: role={first_msg['role']}, content前50字={first_msg['content'][:50] if first_msg['content'] else 'None'}")
-                print(f"📨 第一条消息: role={first_msg['role']}, content前50字={first_msg['content'][:50]}")
-                
-                # 🔥 打印完整的system prompt来调试
-                if first_msg['role'] == 'system':
-                    print(f"\n{'='*80}")
-                    print(f"🔥🔥🔥 完整 SYSTEM PROMPT:")
-                    print(f"{'='*80}")
-                    print(first_msg['content'])
-                    print(f"{'='*80}\n")
-                
-                # 检查是否包含文档上下文
-                if 'CRITICAL CONTEXT' in first_msg['content'] or 'AUTOMATIC SESSION INJECTION' in first_msg['content']:
-                    logger.warning(f"✅ 第一条消息包含新的文档上下文指示！")
-                    print(f"✅ 第一条消息包含新的文档上下文指示！")
-                elif 'IMPORTANT' in first_msg['content'] or 'PDF document' in first_msg['content']:
-                    logger.warning(f"⚠️ 第一条消息包含旧的文档上下文（需要更新）！")
-                    print(f"⚠️ 第一条消息包含旧的文档上下文（需要更新）！")
-                else:
-                    logger.warning(f"❌ 第一条消息不包含文档上下文！")
-                    print(f"❌ 第一条消息不包含文档上下文！")
+            # 日志：简化输出
+            logger.info(f"📨 发送给LLM消息数: {len(messages_for_llm)}, 工具数: {len(tools) if tools else 0}")
             
             # 调用LLM
             llm_response = await self.qwen_service.chat_completion(
                 messages=messages_for_llm,
                 tools=tools,
-                max_tokens=8192,  # 🔥 足够长以支持多轮工具调用
-                temperature=0.7
+                max_tokens=4096,
+                temperature=0.6  # Qwen3 推荐值，适合工具调用/数据提取
             )
             
             if not llm_response.get("success"):
@@ -805,8 +833,8 @@ class LLMChatService:
             summary_response = await self.qwen_service.chat_completion(
                 messages=summary_messages,  # 🔥 不添加额外的 user 消息！
                 tools=self._get_available_tools(),
-                max_tokens=8192,
-                temperature=0.7
+                max_tokens=4096,
+                temperature=0.6  # Qwen3 推荐值，适合工具调用/数据提取
             )
             
             logger.info(f"📊 LLM 响应: success={summary_response.get('success')}, message_length={len(summary_response.get('message', {}).get('content', ''))}")

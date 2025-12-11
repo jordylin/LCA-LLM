@@ -7,19 +7,24 @@ from typing import Optional
 st.set_page_config(
     page_title="EcoLLM",
     page_icon="🌿",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # Clean CSS design
 st.markdown("""
 <style>
-    /* Hide default elements */
+    /* Hide default elements but keep sidebar toggle */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
     .stDeployButton {display: none;}
     .stDecoration {display: none;}
+    
+    /* Keep sidebar toggle button visible */
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+    }
     
     /* Main container */
     .main > div {
@@ -201,6 +206,119 @@ def check_session_status(session_id: str) -> bool:
     except:
         return False
 
+def match_ecoinvent_flow(flow_name: str, category: str = None, top_k: int = 5) -> dict:
+    """匹配 ecoinvent 流"""
+    try:
+        payload = {"flow_name": flow_name, "top_k": top_k}
+        if category:
+            payload["category"] = category
+        response = requests.post(
+            f"{BACKEND_URL}/ecoinvent/match-flow",
+            json=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_all_lci_sessions() -> dict:
+    """获取所有有 LCI 数据的 session 列表"""
+    try:
+        response = requests.get(f"{BACKEND_URL}/lcia/sessions")
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_session_lci_data(session_id: str) -> dict:
+    """获取会话的 LCI 数据（用于 LCIA 计算）"""
+    try:
+        response = requests.get(f"{BACKEND_URL}/lcia/session/{session_id}/data")
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_lcia_methods() -> dict:
+    """获取可用的 LCIA 方法列表"""
+    try:
+        response = requests.get(f"{BACKEND_URL}/lcia/methods?limit=50")
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def match_session_flows(session_id: str, use_llm: bool = False) -> dict:
+    """批量匹配会话中所有流
+    
+    Args:
+        session_id: 会话 ID
+        use_llm: 是否使用 LLM 辅助重写流名称以提高匹配精度
+    """
+    try:
+        params = {"use_llm": "true"} if use_llm else {}
+        response = requests.get(f"{BACKEND_URL}/lcia/session/{session_id}/match", params=params)
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def confirm_flow_match(session_id: str, action_id: str, ecoinvent_uuid: str) -> dict:
+    """确认流匹配"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/ecoinvent/confirm-match",
+            json={"session_id": session_id, "action_id": action_id, "ecoinvent_uuid": ecoinvent_uuid}
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def calculate_lcia(session_id: str, lcia_method_uuid: str, flow_mappings: list = None) -> dict:
+    """执行 LCIA 计算"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/lcia/session/{session_id}/calculate",
+            json={"lcia_method_uuid": lcia_method_uuid, "flow_mappings": flow_mappings or []}
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def test_openlca_connection() -> dict:
+    """测试 openLCA 连接"""
+    try:
+        response = requests.get(f"{BACKEND_URL}/openlca/test", timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def configure_openlca(host: str, port: int) -> dict:
+    """配置 openLCA IPC 地址"""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/openlca/configure",
+            json={"host": host, "port": port},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {"success": False, "error": response.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 def create_llm_chat_session(pdf_session_id: str = None) -> Optional[str]:
     """创建LLM聊天会话"""
     try:
@@ -299,10 +417,192 @@ def send_llm_message_stream(llm_session_id: str, message: str, pdf_session_id: s
     except Exception as e:
         yield {"type": "error", "error": str(e)}
 
+# ==================== SIDEBAR: LCIA Calculation ====================
+
+# 初始化侧边栏状态
+if "lci_data" not in st.session_state:
+    st.session_state.lci_data = None
+if "match_results" not in st.session_state:
+    st.session_state.match_results = None
+if "selected_method" not in st.session_state:
+    st.session_state.selected_method = None
+if "available_sessions" not in st.session_state:
+    st.session_state.available_sessions = []
+if "selected_lcia_session" not in st.session_state:
+    st.session_state.selected_lcia_session = None
+
+with st.sidebar:
+    st.markdown("### LCIA Calculation")
+    
+    # Session 选择
+    with st.expander("Session", expanded=True):
+        # 刷新按钮和当前 session 显示
+        if st.button("Refresh Sessions", use_container_width=True, key="refresh_sessions"):
+            result = get_all_lci_sessions()
+            if result.get("success"):
+                st.session_state.available_sessions = result.get("sessions", [])
+                if st.session_state.available_sessions:
+                    st.success(f"Found {len(st.session_state.available_sessions)} sessions")
+                else:
+                    st.info("No LCI data in database")
+        
+        # 显示可用的 session
+        if st.session_state.available_sessions:
+            session_options = [
+                f"{s['session_id'][:8]}...{s['session_id'][-4:]} ({s['flow_count']} flows)"
+                for s in st.session_state.available_sessions
+            ]
+            selected_idx = st.selectbox(
+                "Select session",
+                options=range(len(session_options)),
+                format_func=lambda i: session_options[i],
+                key="session_selector"
+            )
+            st.session_state.selected_lcia_session = st.session_state.available_sessions[selected_idx]["session_id"]
+        elif st.session_state.session_id:
+            # 使用当前 session
+            st.session_state.selected_lcia_session = st.session_state.session_id
+        
+        # 显示当前选中的 session
+        if st.session_state.selected_lcia_session:
+            st.caption("Current session:")
+            st.code(st.session_state.selected_lcia_session, language=None)
+    
+    # Load LCI Data
+    with st.expander("Load LCI Data", expanded=False):
+        if st.session_state.selected_lcia_session:
+            if st.button("Load Data", use_container_width=True, key="load_lci"):
+                with st.spinner("Loading..."):
+                    result = get_session_lci_data(st.session_state.selected_lcia_session)
+                    if result.get("success"):
+                        st.session_state.lci_data = result
+                        st.success(f"Loaded {result.get('total_flows', 0)} flows")
+                    else:
+                        st.error(result.get("error", "Failed")[:50])
+            
+            # 显示已加载的数据
+            if st.session_state.lci_data:
+                data = st.session_state.lci_data
+                st.markdown(f"**Inputs:** {len(data.get('inputs', []))}")
+                for f in data.get("inputs", [])[:3]:
+                    st.caption(f"• {f['name'][:25]}... ({f['value']} {f['unit']})")
+                st.markdown(f"**Outputs:** {len(data.get('outputs', []))}")
+                for f in data.get("outputs", [])[:2]:
+                    st.caption(f"• {f['name'][:25]}... ({f['value']} {f['unit']})")
+        else:
+            st.info("Select a session first")
+    
+    # Match Ecoinvent
+    with st.expander("Match Ecoinvent", expanded=False):
+        if st.session_state.lci_data:
+            # LLM 辅助匹配选项
+            use_llm = st.checkbox("Use LLM-assisted matching", value=False, 
+                                  help="Use LLM to rewrite flow names for better matching accuracy")
+            
+            if st.button("Auto Match All", use_container_width=True, key="match_all"):
+                with st.spinner("Matching flows to ecoinvent..." + (" (LLM)" if use_llm else "")):
+                    result = match_session_flows(st.session_state.selected_lcia_session, use_llm=use_llm)
+                    if result.get("success"):
+                        st.session_state.match_results = result
+                        matched = sum(1 for r in result.get("results", []) if r.get("matches"))
+                        st.success(f"✓ Matched {matched}/{result.get('total_flows', 0)} flows")
+                    else:
+                        st.error(result.get("error", "Failed")[:50])
+            
+            # 显示匹配结果（更详细）
+            if st.session_state.match_results:
+                st.markdown("---")
+                for r in st.session_state.match_results.get("results", []):
+                    orig = r.get("original", {})
+                    matches = r.get("matches", [])
+                    
+                    # 原始流信息
+                    with st.container():
+                        st.markdown(f"**{orig.get('name', 'N/A')}**")
+                        st.caption(f"{orig.get('value', '')} {orig.get('unit', '')} | {orig.get('category', '')}")
+                        
+                        if matches:
+                            best = matches[0]
+                            st.success(f"→ {best['name']} (sim: {best['similarity']:.2f})")
+                        else:
+                            st.warning("→ No match found")
+                        st.markdown("---")
+        else:
+            st.info("Load LCI data first")
+    
+    # Select LCIA Method
+    with st.expander("Select LCIA Method", expanded=False):
+        if st.button("Load Methods", use_container_width=True, key="load_methods"):
+            with st.spinner("Loading..."):
+                result = get_lcia_methods()
+                if result.get("success"):
+                    st.session_state.lcia_methods = result.get("methods", [])
+                    st.success(f"Loaded {len(st.session_state.lcia_methods)} methods")
+        
+        if "lcia_methods" in st.session_state and st.session_state.lcia_methods:
+            method_names = [m.get("name", "Unknown")[:50] for m in st.session_state.lcia_methods]
+            selected_idx = st.selectbox("Method", range(len(method_names)), 
+                                        format_func=lambda i: method_names[i],
+                                        key="method_select")
+            st.session_state.selected_method = st.session_state.lcia_methods[selected_idx]
+            st.caption(f"UUID: {st.session_state.selected_method.get('uuid', 'N/A')[:20]}...")
+    
+    # Calculate LCIA
+    with st.expander("Calculate LCIA", expanded=False):
+        # openLCA 连接测试
+        if st.button("Test openLCA Connection", use_container_width=True, key="test_conn"):
+            result = test_openlca_connection()
+            if result.get("success"):
+                st.success("✓ openLCA IPC connected")
+            else:
+                st.error(f"✗ {result.get('error', 'Connection failed')[:40]}")
+        
+        st.markdown("---")
+        
+        # 计算按钮
+        can_calculate = (st.session_state.lci_data and 
+                        st.session_state.match_results and 
+                        st.session_state.selected_method)
+        
+        if st.button("Run LCIA Calculation", use_container_width=True, 
+                    disabled=not can_calculate, key="run_lcia"):
+            with st.spinner("Calculating LCIA..."):
+                # 构建流映射（从匹配结果中提取）
+                flow_mappings = []
+                if st.session_state.match_results:
+                    for r in st.session_state.match_results.get("results", []):
+                        matches = r.get("matches", [])
+                        if matches:
+                            flow_mappings.append({
+                                "action_id": r.get("action_id"),
+                                "ecoinvent_uuid": matches[0].get("uuid")
+                            })
+                
+                result = calculate_lcia(
+                    st.session_state.selected_lcia_session,
+                    st.session_state.selected_method.get("uuid"),
+                    flow_mappings
+                )
+                if result.get("success"):
+                    st.success("✓ Calculation complete!")
+                    st.json(result.get("results", {}))
+                else:
+                    st.error(result.get("error", "Failed"))
+        
+        if not can_calculate:
+            missing = []
+            if not st.session_state.lci_data:
+                missing.append("LCI data")
+            if not st.session_state.match_results:
+                missing.append("Ecoinvent match")
+            if not st.session_state.selected_method:
+                missing.append("LCIA method")
+            st.caption(f"Missing: {', '.join(missing)}")
+
 # ==================== MAIN INTERFACE ====================
 
 # Title section
-st.markdown('<h1 class="main-title">LCA-LLM</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">EcoLLM</h1>', unsafe_allow_html=True)
 st.markdown('<p class="main-subtitle">Life Cycle Assessment Analysis Platform</p>', unsafe_allow_html=True)
 
 # Status and reset
@@ -469,63 +769,91 @@ if st.session_state.session_id and st.session_state.mode:
                 "content": user_input
             })
             
-            # 🔥 流式显示
+            # Tokens-level streaming mode (Snapshot-based)
             with st.chat_message("assistant"):
-                # 使用两个独立的占位符
-                thinking_placeholder = st.empty()
+                status_placeholder = st.empty()
+                thinking_container = st.empty()
                 content_placeholder = st.empty()
+                
+                # 🔥 显示初始加载状态
+                status_placeholder.markdown("Analyzing...")
                 
                 thinking_text = ""
                 content_text = ""
                 tool_results = []
-                is_thinking = True  # 开始时假设在 thinking
+                tool_calls_seen = []
+                first_response_received = False
                 
-                for chunk in send_llm_message_stream(
-                    llm_session_id=st.session_state.llm_session_id,
-                    message=user_input,
-                    pdf_session_id=st.session_state.session_id
-                ):
-                    chunk_type = chunk.get("type", "")
-                    
-                    if chunk_type == "thinking":
-                        thinking_text += chunk.get("content", "")
-                        # 实时更新思考过程（展开状态）
-                        thinking_placeholder.markdown(f"💭 **Thinking...**\n\n{thinking_text}")
-                    
-                    elif chunk_type == "content":
-                        # 第一次收到 content 时，折叠 thinking
-                        if is_thinking and thinking_text:
-                            is_thinking = False
-                            # 折叠思考过程
-                            with thinking_placeholder.expander("💭 Thinking Process", expanded=False):
-                                st.text(thinking_text)
+                try:
+                    for chunk in send_llm_message_stream(
+                        llm_session_id=st.session_state.llm_session_id,
+                        message=user_input,
+                        pdf_session_id=st.session_state.session_id
+                    ):
+                        chunk_type = chunk.get("type", "")
                         
-                        content_text += chunk.get("content", "")
-                        # 实时更新内容
-                        content_placeholder.markdown(content_text)
-                    
-                    elif chunk_type == "tool_call":
-                        tool_call = chunk.get("tool_call", {})
-                        st.info(f"🔧 Calling tool: {tool_call.get('tool_name', 'unknown')}")
-                    
-                    elif chunk_type == "tool_result":
-                        tool_results.append(chunk)
-                    
-                    elif chunk_type == "done":
-                        # 完成时确保 thinking 被折叠
-                        if thinking_text and is_thinking:
-                            with thinking_placeholder.expander("💭 Thinking Process", expanded=False):
-                                st.text(thinking_text)
-                    
-                    elif chunk_type == "error":
-                        st.error(f"Error: {chunk.get('error', 'Unknown error')}")
-                        content_text = f"Error: {chunk.get('error', 'Unknown error')}"
+                        if chunk_type == "thinking":
+                            # 收到第一个响应，清除加载状态
+                            if not first_response_received:
+                                status_placeholder.empty()
+                                first_response_received = True
+                            # Snapshot mode: replace entire thinking content
+                            thinking_text = chunk.get("content", "")
+                            with thinking_container.container():
+                                with st.expander("Thinking...", expanded=True):
+                                    st.markdown(thinking_text)
+                        
+                        elif chunk_type == "tool_call":
+                            tool_name = chunk.get("tool_name", "")
+                            tool_calls_seen.append(tool_name)
+                            status_placeholder.info(f"Calling tool: {tool_name}...")
+                        
+                        elif chunk_type == "tool_result":
+                            tool_name = chunk.get("tool_name", "")
+                            tool_results.append(chunk)
+                            status_placeholder.success(f"Tool {tool_name} completed")
+                        
+                        elif chunk_type == "content":
+                            # Snapshot mode: replace entire content
+                            content_text = chunk.get("content", "")
+                            status_placeholder.empty()
+                            # Collapse thinking when content starts
+                            if thinking_text:
+                                with thinking_container.container():
+                                    with st.expander("Thinking Process", expanded=False):
+                                        st.markdown(thinking_text)
+                            content_placeholder.markdown(content_text)
+                        
+                        elif chunk_type == "done":
+                            status_placeholder.empty()
+                            if not content_text:
+                                content_text = chunk.get("content", "")
+                            if not thinking_text:
+                                thinking_text = chunk.get("thinking", "")
+                            # Final display
+                            if thinking_text:
+                                with thinking_container.container():
+                                    with st.expander("Thinking Process", expanded=False):
+                                        st.markdown(thinking_text)
+                            if content_text:
+                                content_placeholder.markdown(content_text)
+                            elif tool_results:
+                                content_text = "I've processed your request. The data has been recorded."
+                                content_placeholder.markdown(content_text)
+                        
+                        elif chunk_type == "error":
+                            status_placeholder.error(chunk.get('error', 'Unknown error'))
+                            content_text = f"Error: {chunk.get('error', 'Unknown error')}"
                 
-                # 保存到历史（不包含 thinking 在 content 里）
+                except Exception as e:
+                    status_placeholder.error(f"Error: {str(e)}")
+                    content_text = f"Error: {str(e)}"
+                
+                # Save to history
                 assistant_msg = {
                     "role": "assistant",
-                    "content": content_text.strip(),
-                    "thinking": thinking_text.strip(),
+                    "content": content_text.strip() if content_text else "Request processed.",
+                    "thinking": thinking_text.strip() if thinking_text else None,
                     "tool_results": tool_results if tool_results else None
                 }
                 st.session_state.llm_chat_history.append(assistant_msg)

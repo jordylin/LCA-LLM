@@ -3,8 +3,8 @@
 
 **文档类型**: 学术写作辅助文档（对应论文2.5节）  
 **目标受众**: 研究人员、系统架构师  
-**版本**: 1.0  
-**更新日期**: 2025-11-27
+**版本**: 1.1  
+**更新日期**: 2025-12-11
 
 ---
 
@@ -780,7 +780,217 @@ volumes:
 
 ---
 
-## 9. 未来优化方向
+## 9. Ecoinvent 匹配与 openLCA 集成
+
+### 9.1 Ecoinvent 语义匹配服务
+
+**功能概述**：将用户从文档中提取的 LCI 数据与 ecoinvent 数据库中的标准流进行语义匹配，实现数据标准化。
+
+**技术实现**：
+
+```
+用户提取的 LCI 数据 (lca_actions)
+         ↓
+    两阶段匹配引擎
+    ├── 阶段1: 文本搜索 (MongoDB regex)
+    └── 阶段2: 语义排序 (Qwen3-Embedding)
+         ↓
+    ecoinvent flows (63,557条) / processes (18,856条)
+         ↓
+    匹配结果 (Top-K candidates)
+```
+
+**核心组件**：
+
+| 组件 | 技术 | 说明 |
+|------|------|------|
+| 匹配服务 | `ecoinvent_matcher.py` | 两阶段匹配算法 |
+| 向量模型 | Qwen3-Embedding-0.6B | 1024维预计算向量 |
+| 数据存储 | MongoDB | flows/processes 集合 |
+| API 端点 | FastAPI | `/ecoinvent/match-flow` 等 |
+
+**匹配算法**：
+
+```python
+def match_flow(flow_name, category=None, top_k=5):
+    # 阶段1: 文本搜索获取候选
+    text_filter = {"name": {"$regex": flow_name, "$options": "i"}}
+    candidates = db.flows.find(text_filter).limit(100)
+    
+    # 阶段2: 语义相似度排序（使用预计算向量）
+    query_embedding = model.encode(flow_name)
+    for flow in candidates:
+        flow_embedding = flow["embedding_vector"]  # 预计算的1024维向量
+        similarity = cosine_similarity(query_embedding, flow_embedding)
+    
+    return sorted(results, key=lambda x: x["similarity"], reverse=True)[:top_k]
+```
+
+**API 端点**：
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/ecoinvent/match-flow` | POST | 单个流匹配 |
+| `/ecoinvent/match-session/{id}` | GET | 批量匹配会话数据 |
+| `/ecoinvent/confirm-match` | POST | 确认匹配结果 |
+| `/ecoinvent/search-flows` | GET | 直接搜索 ecoinvent |
+
+**性能指标**：
+- 匹配延迟：<500ms（含模型推理）
+- 召回率：~85%（Top-5）
+- 预计算向量：63,557 条 flows 已向量化
+
+### 9.2 openLCA IPC 集成
+
+**功能概述**：通过 JSON-RPC 2.0 协议与 openLCA 软件通信，实现 LCA 计算的自动化。
+
+**架构设计**：
+
+```
+EcoLLM Backend (Port 8000)
+         ↓ JSON-RPC 2.0
+openLCA IPC Server (Port 8081)
+         ↓
+openLCA 数据库 (ecoinvent 3.x)
+```
+
+**核心组件**：
+
+| 组件 | 文件 | 功能 |
+|------|------|------|
+| IPC 客户端 | `openlca_client.py` | JSON-RPC 通信封装 |
+| 连接管理 | 环境变量配置 | `OPENLCA_HOST`, `OPENLCA_PORT` |
+| API 端点 | FastAPI | `/openlca/test`, `/openlca/configure` |
+
+**支持的 openLCA 操作**：
+
+```python
+class OpenLCAClient:
+    def test_connection(self):
+        """测试连接"""
+        return self._call_rpc("data/get/descriptors", {"@type": "Flow"})
+    
+    def get_flows(self, limit=100):
+        """获取流列表"""
+        return self._call_rpc("data/get/descriptors", {"@type": "Flow"})
+    
+    def get_impact_methods(self):
+        """获取影响评价方法"""
+        return self._call_rpc("data/get/descriptors", {"@type": "ImpactMethod"})
+    
+    def create_product_system(self, process_id, name):
+        """创建产品系统"""
+        return self._call_rpc("data/create/product_system", {...})
+    
+    def calculate(self, product_system_id, impact_method_id=None):
+        """执行 LCA 计算"""
+        return self._call_rpc("result/calculate", {...})
+```
+
+**API 端点**：
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/openlca/test` | GET | 测试连接状态 |
+| `/openlca/configure` | POST | 配置 IPC 地址 |
+| `/openlca/flows` | GET | 获取 openLCA 流列表 |
+| `/openlca/impact-methods` | GET | 获取影响评价方法 |
+
+**配置说明**：
+
+```bash
+# 环境变量配置
+export OPENLCA_HOST=localhost  # openLCA 所在主机
+export OPENLCA_PORT=8081       # IPC 端口（避免与 vLLM 8080 冲突）
+
+# 跨机器配置（openLCA 在本地电脑）
+export OPENLCA_HOST=192.168.1.100  # 本地电脑局域网 IP
+export OPENLCA_PORT=8081
+```
+
+**端口规划**：
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| vLLM | 8080 | LLM 推理服务 |
+| openLCA IPC | 8081 | LCA 计算服务 |
+| Backend | 8000 | FastAPI 后端 |
+| Frontend | 8501 | Streamlit 前端 |
+
+### 9.3 前端集成
+
+**侧边栏功能**（极简设计）：
+
+1. **Match Flow**：手动输入流名称进行 ecoinvent 匹配
+   - 输入：流名称、LCI 类别（可选）
+   - 输出：Top-3 匹配结果（名称、相似度、流类型）
+   - **LLM 辅助匹配**：勾选 "Use LLM-assisted matching" 可启用 LLM 重写功能
+
+2. **openLCA Connection**：配置 IPC 连接
+   - 输入：Host、Port
+   - 操作：Test（测试连接）、Configure（保存配置）
+
+**使用流程**：
+
+```
+1. 上传文档 → 提取 LCI 数据
+2. 侧边栏 Match Flow → 匹配 ecoinvent（可选启用 LLM 辅助）
+3. 确认匹配结果 → 关联 UUID
+4. openLCA Connection → 配置连接
+5. 导出到 openLCA → 执行 LCIA 计算
+```
+
+### 9.4 LLM 辅助匹配（LLM-Assisted Matching）
+
+**问题背景**：
+用户提取的流名称（如 "Solid Waste"）与 Ecoinvent 数据库中的标准名称（如 "steel scrap"）存在语义差距，导致匹配精度不足。
+
+**解决方案**：
+使用 LLM 作为"翻译官"，将模糊的流名称重写为精确的 Ecoinvent 搜索词。
+
+**技术实现**：
+
+```python
+# 1. 上下文增强嵌入（Context-Augmented Embedding）
+# 从 functional_unit、note、selected_chunk 提取材料关键词
+query = f"{flow_name} {material_keywords} {category}"
+
+# 2. LLM 辅助重写（可选，需要 vLLM 服务）
+REWRITE_PROMPT = """
+Flow Name: "{flow_name}"
+Material Context: {functional_unit}
+Process Context: {note}
+
+Output the most precise Ecoinvent search term (1-5 words).
+"""
+```
+
+**API 使用**：
+
+```bash
+# 普通匹配（上下文增强）
+curl "http://localhost:8000/lcia/session/{session_id}/match"
+
+# LLM 辅助匹配（需要 vLLM 服务运行在 8080 端口）
+curl "http://localhost:8000/lcia/session/{session_id}/match?use_llm=true"
+```
+
+**效果对比**：
+
+| Flow | 普通匹配 | LLM 辅助匹配 |
+|------|----------|--------------|
+| Solid Waste | Packaging waste, steel (0.62) | Metal waste (0.53) ✅ |
+| SLM Process Energy | Energy, unspecified (0.49) | electricity, low voltage (0.55) ✅ |
+| Powder Production Energy | Energy, from coal (0.48) | Energy, unspecified (0.58) ✅ |
+
+**注意事项**：
+- LLM 辅助匹配需要 vLLM 服务运行（端口 8080）
+- 每个流需要一次 LLM 调用，会增加匹配时间
+- 禁用思考模式以获得简洁输出
+
+---
+
+## 10. 未来优化方向
 
 ### 9.1 短期（3个月内）
 

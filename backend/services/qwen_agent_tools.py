@@ -176,7 +176,7 @@ class RecordProcessFlowTool(BaseTool):
         {
             "name": "note",
             "type": "string",
-            "description": "Additional notes",
+            "description": "Additional notes, e.g., 'SLM machine', 'Atomization'",
             "required": False
         }
     ]
@@ -186,34 +186,35 @@ class RecordProcessFlowTool(BaseTool):
         try:
             if isinstance(params, str):
                 params = json.loads(params)
-                
+            
             session_id = get_session_id()
             if not session_id:
                 return json.dumps({"error": "No document session available"})
-                
+            
             tool_service = get_tool_service()
             if not tool_service:
                 return json.dumps({"error": "Tool service not initialized"})
             
-            # 🔥 参数名映射（兼容 LLM 可能使用的不同参数名）
-            if "flow_name" in params:
-                params["name"] = params.pop("flow_name")
-            if "quantity" in params:
-                params["value"] = params.pop("quantity")
-            if "amount" in params:
-                params["value"] = params.pop("amount")
-            if "notes" in params:
-                params["note"] = params.pop("notes")
+            # 🔥 完整的参数名映射（兼容 LLM 可能使用的各种参数名）
+            mapped_params = {
+                "session_id": session_id,
+                "flow_type": params.get("flow_type") or params.get("type"),
+                "category": params.get("category") or params.get("cat"),
+                "name": params.get("name") or params.get("flow_name") or params.get("flow"),
+                "value": params.get("value") or params.get("quantity") or params.get("amount") or params.get("val"),
+                "unit": params.get("unit"),
+                "note": params.get("note") or params.get("notes"),
+                "selected_chunk": params.get("selected_chunk") or params.get("source") or params.get("chunk"),
+            }
             
-            # 添加 session_id
-            params["session_id"] = session_id
+            # 移除 None 值，让方法使用默认值
+            mapped_params = {k: v for k, v in mapped_params.items() if v is not None}
             
-            # 调用实际的记录方法
             result = run_async(
-                tool_service.record_process_flow(**params)
+                tool_service.record_process_flow(**mapped_params)
             )
             
-            logger.info(f"📝 record_process_flow 执行完成: {params.get('name')}")
+            logger.info(f"📝 record_process_flow 执行完成: {mapped_params.get('name')}")
             return json.dumps(result, ensure_ascii=False, default=str)
             
         except Exception as e:
@@ -225,12 +226,12 @@ class RecordProcessFlowTool(BaseTool):
 class RecordParameterTool(BaseTool):
     """记录中间参数工具"""
     
-    description = "Record intermediate parameters for calculations, such as efficiency values, conversion factors, etc."
+    description = "Record intermediate parameters for calculations, such as power, time, efficiency values."
     parameters = [
         {
             "name": "parameter_name",
             "type": "string",
-            "description": "Name of the parameter",
+            "description": "Name of the parameter, e.g., 'power', 'printing_time', 'efficiency'",
             "required": True
         },
         {
@@ -242,7 +243,7 @@ class RecordParameterTool(BaseTool):
         {
             "name": "unit",
             "type": "string",
-            "description": "Unit of measurement",
+            "description": "Unit of measurement, e.g., 'W', 'h', '%'",
             "required": True
         },
         {
@@ -252,7 +253,7 @@ class RecordParameterTool(BaseTool):
             "required": False
         },
         {
-            "name": "notes",
+            "name": "note",
             "type": "string",
             "description": "Additional notes",
             "required": False
@@ -264,22 +265,44 @@ class RecordParameterTool(BaseTool):
         try:
             if isinstance(params, str):
                 params = json.loads(params)
-                
+            
             session_id = get_session_id()
             if not session_id:
                 return json.dumps({"error": "No document session available"})
-                
+            
             tool_service = get_tool_service()
             if not tool_service:
                 return json.dumps({"error": "Tool service not initialized"})
             
-            params["session_id"] = session_id
+            # 🔥 完整的参数名映射（兼容 LLM 可能使用的各种参数名）
+            # tool_service.record_parameter 期望: parameter_name, parameter_value, parameter_unit, selected_chunk
+            
+            # 处理 selected_chunk：可能是字符串或字典，且是必需参数
+            chunk_raw = params.get("selected_chunk") or params.get("source") or params.get("chunk") or ""
+            if isinstance(chunk_raw, str):
+                selected_chunk = {"content": chunk_raw}
+            elif isinstance(chunk_raw, dict):
+                selected_chunk = chunk_raw
+            else:
+                selected_chunk = {"content": ""}
+            
+            mapped_params = {
+                "session_id": session_id,
+                "parameter_name": params.get("parameter_name") or params.get("name"),
+                "parameter_value": params.get("value") or params.get("val") or params.get("parameter_value"),
+                "parameter_unit": params.get("unit") or params.get("parameter_unit"),
+                "note": params.get("note") or params.get("notes"),
+                "selected_chunk": selected_chunk,
+            }
+            
+            # 移除 None 值（但保留 selected_chunk）
+            mapped_params = {k: v for k, v in mapped_params.items() if v is not None or k == "selected_chunk"}
             
             result = run_async(
-                tool_service.record_parameter(**params)
+                tool_service.record_parameter(**mapped_params)
             )
             
-            logger.info(f"📝 record_parameter 执行完成: {params.get('parameter_name')}")
+            logger.info(f"📝 record_parameter 执行完成: {mapped_params.get('parameter_name')}")
             return json.dumps(result, ensure_ascii=False, default=str)
             
         except Exception as e:
@@ -300,10 +323,22 @@ class DefineLCAScopeTool(BaseTool):
             "required": True
         },
         {
-            "name": "value",
+            "name": "description",
             "type": "string",
-            "description": "Parameter value, e.g., '1 kg product', 'cradle-to-gate', 'China'",
+            "description": "Full description of the parameter, e.g., '1 kg of 316L impeller manufactured by SLM'",
             "required": True
+        },
+        {
+            "name": "value",
+            "type": "number",
+            "description": "Numeric value (optional, mainly for Functional Unit)",
+            "required": False
+        },
+        {
+            "name": "unit",
+            "type": "string",
+            "description": "Unit of the value (optional)",
+            "required": False
         },
         {
             "name": "selected_chunk",
@@ -312,7 +347,7 @@ class DefineLCAScopeTool(BaseTool):
             "required": False
         },
         {
-            "name": "notes",
+            "name": "note",
             "type": "string",
             "description": "Additional notes",
             "required": False
@@ -324,22 +359,34 @@ class DefineLCAScopeTool(BaseTool):
         try:
             if isinstance(params, str):
                 params = json.loads(params)
-                
+            
             session_id = get_session_id()
             if not session_id:
                 return json.dumps({"error": "No document session available"})
-                
+            
             tool_service = get_tool_service()
             if not tool_service:
                 return json.dumps({"error": "Tool service not initialized"})
             
-            params["session_id"] = session_id
+            # 🔥 完整的参数名映射（兼容 LLM 可能使用的各种参数名）
+            mapped_params = {
+                "session_id": session_id,
+                "parameter_name": params.get("parameter_name") or params.get("name") or params.get("type"),
+                "description": params.get("description") or params.get("desc") or params.get("content"),
+                "value": params.get("value") or params.get("val"),
+                "unit": params.get("unit"),
+                "note": params.get("note") or params.get("notes"),
+                "selected_chunk": params.get("selected_chunk") or params.get("source") or params.get("chunk"),
+            }
+            
+            # 移除 None 值，让方法使用默认值
+            mapped_params = {k: v for k, v in mapped_params.items() if v is not None}
             
             result = run_async(
-                tool_service.define_lca_scope(**params)
+                tool_service.define_lca_scope(**mapped_params)
             )
             
-            logger.info(f"📝 define_lca_scope 执行完成: {params.get('parameter_name')}")
+            logger.info(f"📝 define_lca_scope 执行完成: {mapped_params.get('parameter_name')}")
             return json.dumps(result, ensure_ascii=False, default=str)
             
         except Exception as e:
@@ -408,22 +455,31 @@ class ExecuteCalculationTool(BaseTool):
         try:
             if isinstance(params, str):
                 params = json.loads(params)
-                
+            
             session_id = get_session_id()
             if not session_id:
                 return json.dumps({"error": "No document session available"})
-                
+            
             tool_service = get_tool_service()
             if not tool_service:
                 return json.dumps({"error": "Tool service not initialized"})
             
-            params["session_id"] = session_id
+            # 🔥 完整的参数名映射
+            mapped_params = {
+                "session_id": session_id,
+                "formula": params.get("formula") or params.get("expression") or params.get("calc"),
+                "result_name": params.get("result_name") or params.get("name") or params.get("output_name"),
+                "result_unit": params.get("result_unit") or params.get("unit") or params.get("output_unit"),
+            }
+            
+            # 移除 None 值
+            mapped_params = {k: v for k, v in mapped_params.items() if v is not None}
             
             result = run_async(
-                tool_service.execute_calculation(**params)
+                tool_service.execute_calculation(**mapped_params)
             )
             
-            logger.info(f"🔢 execute_calculation 执行完成: {params.get('result_name')}")
+            logger.info(f"🔢 execute_calculation 执行完成: {mapped_params.get('result_name')}")
             return json.dumps(result, ensure_ascii=False, default=str)
             
         except Exception as e:

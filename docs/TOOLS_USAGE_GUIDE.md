@@ -13,9 +13,18 @@
    - [search_lci_database - LCI数据库搜索](#search_lci_database---lci数据库搜索工具)
 5. [系统构建工具](#系统构建工具)
    - [build_lca_system - LCA系统构建](#build_lca_system---lca系统构建工具)
-6. [使用流程示例](#使用流程示例)
-7. [最佳实践](#最佳实践)
-8. [常见问题](#常见问题)
+6. [Ecoinvent 匹配工具](#ecoinvent-匹配工具) *(新增)*
+   - [match_ecoinvent_flow - 流匹配](#match_ecoinvent_flow---流匹配工具)
+   - [match_session_flows - 会话批量匹配](#match_session_flows---会话批量匹配)
+   - [confirm_match - 确认匹配](#confirm_match---确认匹配结果)
+7. [openLCA IPC 集成工具](#openlca-ipc-集成工具) *(新增)*
+   - [test_openlca_connection - 测试连接](#test_openlca_connection---测试连接)
+   - [configure_openlca - 配置连接](#configure_openlca---配置连接)
+   - [get_openlca_flows - 获取流列表](#get_openlca_flows---获取流列表)
+8. [完整工作流程](#完整工作流程从文档到-lcia)
+9. [使用流程示例](#使用流程示例)
+10. [最佳实践](#最佳实践)
+11. [常见问题](#常见问题)
 
 ---
 
@@ -827,18 +836,278 @@ def multilingual_search(session_id, topic):
 
 ---
 
-## 📝 总结
+## 🔗 Ecoinvent 匹配工具
 
-这三个核心工具构成了LCA-LLM系统的基础功能：
+### match_ecoinvent_flow - 流匹配工具
 
-1. **process_document**: 文档入口，建立搜索基础
-2. **search_document**: 文档分析，获取具体信息
-3. **search_lci_database**: 标准数据，提供对比基准
+#### 功能描述
+将用户从文档中提取的 LCI 流数据与 ecoinvent 数据库中的标准流进行语义匹配，返回最相似的候选结果。
 
-通过合理组合使用这些工具，可以实现从文档上传到深度分析的完整LCA工作流程。建议根据具体需求选择合适的参数配置，并遵循最佳实践以获得最佳效果。
+#### 核心特性
+- **两阶段匹配**：文本搜索 + 语义排序
+- **预计算向量**：使用 Qwen3-Embedding-0.6B 的 1024 维向量
+- **类别过滤**：支持按 LCI 类别筛选候选
+- **批量匹配**：支持会话级批量匹配
+
+#### 参数说明
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `flow_name` | string | ✅ | 流名称（如 "electricity", "316L steel"） |
+| `category` | string | ❌ | LCI 类别（如 "Process Energy", "Raw Material"） |
+| `flow_type` | string | ❌ | 流类型（"Input" 或 "Output"） |
+| `top_k` | integer | ❌ | 返回结果数量（默认 5） |
+
+#### 使用示例
+
+```bash
+# 匹配电力流
+curl -X POST "http://localhost:8000/ecoinvent/match-flow" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "flow_name": "electricity",
+       "category": "Process Energy",
+       "top_k": 5
+     }'
+```
+
+#### 返回结果
+```json
+{
+  "success": true,
+  "query": "electricity",
+  "matches": [
+    {
+      "uuid": "66c93e71-f32b-4591-901c-55395db5c132",
+      "name": "electricity, high voltage",
+      "category": "D:Electricity, gas, steam.../3510:Electric power...",
+      "flowType": "PRODUCT_FLOW",
+      "unit": "MJ",
+      "similarity": 0.85
+    }
+  ]
+}
+```
+
+### match_session_flows - 会话批量匹配
+
+#### 功能描述
+批量匹配一个会话中所有已记录的 LCI 流数据。支持两种匹配模式：
+- **普通匹配**：使用上下文增强嵌入（Context-Augmented Embedding）
+- **LLM 辅助匹配**：使用 LLM 重写流名称以提高匹配精度
+
+#### 参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `session_id` | string | 必需 | 会话 ID |
+| `use_llm` | boolean | false | 是否启用 LLM 辅助匹配 |
+
+#### 使用示例
+
+**普通匹配**（上下文增强）：
+```bash
+curl -X GET "http://localhost:8000/lcia/session/{session_id}/match"
+```
+
+**LLM 辅助匹配**（需要 vLLM 服务运行在 8080 端口）：
+```bash
+curl -X GET "http://localhost:8000/lcia/session/{session_id}/match?use_llm=true"
+```
+
+#### LLM 辅助匹配原理
+
+1. **上下文增强嵌入**：从 `functional_unit`、`note`、`selected_chunk` 提取材料关键词
+2. **LLM 重写**：使用 LLM 将模糊名称（如 "Solid Waste"）转换为精确搜索词（如 "steel scrap"）
+
+#### 效果对比
+
+| Flow | 普通匹配 | LLM 辅助匹配 |
+|------|----------|--------------|
+| Solid Waste | Packaging waste, steel (0.62) | Metal waste (0.53) ✅ |
+| SLM Process Energy | Energy, unspecified (0.49) | electricity, low voltage (0.55) ✅ |
+
+#### 前端使用
+
+在侧边栏的 "Match Ecoinvent" 区域，勾选 **"Use LLM-assisted matching"** 复选框即可启用 LLM 辅助匹配。
+
+### confirm_match - 确认匹配结果
+
+#### 功能描述
+确认用户选择的匹配结果，将 ecoinvent UUID 关联到 LCI 记录。
+
+#### 使用示例
+```bash
+curl -X POST "http://localhost:8000/ecoinvent/confirm-match" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "session_id": "your-session-id",
+       "action_id": "ACT_0001",
+       "ecoinvent_uuid": "66c93e71-f32b-4591-901c-55395db5c132"
+     }'
+```
 
 ---
 
-*📅 文档更新日期: 2025-11-12*  
-*🔧 文档版本: v1.1 - 新增批量搜索功能*  
-*👥 维护团队: LCA-LLM开发组*
+## 🖥️ openLCA IPC 集成工具
+
+### test_openlca_connection - 测试连接
+
+#### 功能描述
+测试与 openLCA IPC 服务的连接状态。
+
+#### 使用示例
+```bash
+curl -X GET "http://localhost:8000/openlca/test"
+```
+
+#### 返回结果
+```json
+{
+  "success": true,
+  "message": "Connected to openLCA at http://localhost:8081",
+  "flow_count": 63562
+}
+```
+
+### configure_openlca - 配置连接
+
+#### 功能描述
+配置 openLCA IPC 服务的地址和端口。
+
+#### 参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `host` | string | localhost | openLCA 主机地址 |
+| `port` | integer | 8081 | IPC 端口 |
+
+#### 使用示例
+```bash
+# 配置本地 openLCA
+curl -X POST "http://localhost:8000/openlca/configure" \
+     -H "Content-Type: application/json" \
+     -d '{"host": "localhost", "port": 8081}'
+
+# 配置远程 openLCA（本地电脑）
+curl -X POST "http://localhost:8000/openlca/configure" \
+     -H "Content-Type: application/json" \
+     -d '{"host": "192.168.1.100", "port": 8081}'
+```
+
+### get_openlca_flows - 获取流列表
+
+#### 功能描述
+获取 openLCA 数据库中的流列表。
+
+#### 使用示例
+```bash
+curl -X GET "http://localhost:8000/openlca/flows?limit=10"
+```
+
+### get_impact_methods - 获取影响评价方法
+
+#### 功能描述
+获取 openLCA 中可用的影响评价方法列表。
+
+#### 使用示例
+```bash
+curl -X GET "http://localhost:8000/openlca/impact-methods"
+```
+
+---
+
+## 🔄 完整工作流程：从文档到 LCIA
+
+### 流程概览
+
+```
+1. 上传文档 (process_document)
+         ↓
+2. 提取 LCI 数据 (search_document + record_process_flow)
+         ↓
+3. 匹配 ecoinvent (match_ecoinvent_flow)
+         ↓
+4. 确认匹配 (confirm_match)
+         ↓
+5. 连接 openLCA (configure_openlca)
+         ↓
+6. 执行 LCIA 计算 (openLCA IPC)
+```
+
+### 完整示例代码
+
+```python
+import requests
+import base64
+
+BACKEND_URL = "http://localhost:8000"
+
+# 步骤1: 上传文档
+with open("lca_study.pdf", "rb") as f:
+    file_content = base64.b64encode(f.read()).decode()
+
+response = requests.post(f"{BACKEND_URL}/tools/process-document", json={
+    "file_content": file_content,
+    "filename": "lca_study.pdf"
+})
+session_id = response.json()["session_id"]
+print(f"✅ 文档处理完成: {session_id}")
+
+# 步骤2: 提取 LCI 数据（通过 AI Chat 或手动）
+# ... LLM 自动调用 search_document 和 record_process_flow
+
+# 步骤3: 匹配 ecoinvent
+match_result = requests.post(f"{BACKEND_URL}/ecoinvent/match-flow", json={
+    "flow_name": "electricity",
+    "category": "Process Energy",
+    "top_k": 5
+}).json()
+
+if match_result["success"]:
+    best_match = match_result["matches"][0]
+    print(f"✅ 最佳匹配: {best_match['name']} (相似度: {best_match['similarity']:.2f})")
+
+# 步骤4: 确认匹配
+confirm_result = requests.post(f"{BACKEND_URL}/ecoinvent/confirm-match", json={
+    "session_id": session_id,
+    "action_id": "ACT_0001",
+    "ecoinvent_uuid": best_match["uuid"]
+}).json()
+
+# 步骤5: 测试 openLCA 连接
+olca_test = requests.get(f"{BACKEND_URL}/openlca/test").json()
+if olca_test["success"]:
+    print(f"✅ openLCA 连接成功: {olca_test['flow_count']} 条流")
+
+# 步骤6: 获取影响评价方法
+methods = requests.get(f"{BACKEND_URL}/openlca/impact-methods").json()
+print(f"✅ 可用影响评价方法: {len(methods.get('methods', []))} 种")
+```
+
+---
+
+## 📝 总结
+
+EcoLLM 系统提供完整的 LCA 工具链，支持从文档分析到 LCIA 计算的全流程：
+
+### 核心工具层
+1. **process_document**: 文档入口，建立搜索基础
+2. **search_document**: 文档分析，获取具体信息
+3. **record_process_flow**: 记录 LCI 流数据
+4. **search_lci_database**: 标准数据，提供对比基准
+
+### 数据标准化层 *(新增)*
+5. **match_ecoinvent_flow**: 将提取的数据与 ecoinvent 标准流匹配
+6. **confirm_match**: 确认匹配结果，关联 UUID
+
+### LCA 计算层 *(新增)*
+7. **openLCA IPC**: 连接 openLCA 执行 LCIA 计算
+
+通过合理组合使用这些工具，可以实现从文档上传到 LCIA 计算的完整 LCA 工作流程。
+
+---
+
+*📅 文档更新日期: 2025-12-11*  
+*🔧 文档版本: v1.2 - 新增 ecoinvent 匹配和 openLCA IPC 集成*  
+*👥 维护团队: EcoLLM 开发组*

@@ -13,6 +13,9 @@ import uuid
 import logging
 from datetime import datetime
 import requests
+import asyncio
+import queue
+import threading
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -51,6 +54,9 @@ from backend.services.vllm_service import VLLMService
 # 导入单位API路由
 from backend.api.unit_api import router as unit_router
 from backend.services.keyword_suggester import keyword_suggester
+from backend.services.ecoinvent_matcher import get_ecoinvent_matcher
+from backend.services.openlca_client import get_openlca_client
+from backend.services.lcia_calculator import get_lcia_calculator
 
 app = FastAPI(title="LCA-LLM Service", version="1.0.0")
 
@@ -218,8 +224,12 @@ if LLM_SERVICE == "vllm":
 elif LLM_SERVICE == "qwen_agent":
     logger.info("🚀 使用 Qwen-Agent V2 服务 (vLLM + Qwen-Agent)")
     vllm_api_base = os.environ.get("VLLM_API_BASE", "http://localhost:8080/v1")
+    # 🔥 支持选择模型：qwen-lca (基座) 或 lca_lora (LoRA微调)
+    vllm_model_name = os.environ.get("VLLM_MODEL_NAME", "qwen-lca")
+    logger.info(f"📦 使用模型: {vllm_model_name}")
     qwen_service = QwenAgentServiceV2(
         api_base=vllm_api_base,
+        model_name=vllm_model_name,
         session_manager=session_manager
     )
     qwen_service.set_pdf_processor(pdf_processor)
@@ -1501,41 +1511,53 @@ async def send_chat_message(request: ChatRequest):
 @app.post("/chat/stream")
 async def stream_chat_message(request: ChatRequest):
     """
-    流式聊天端点 - 实时返回 reasoning 和最终响应
+    流式聊天端点 - 使用 llm_chat_service 确保正确的 system prompt
     
-    使用 Server-Sent Events (SSE) 格式：
-    - event: thinking  - 思考过程片段
-    - event: content   - 最终回复片段
-    - event: tool_call - 工具调用
-    - event: done      - 完成
-    - event: error     - 错误
+    在后台执行完整的 chat 调用，完成后推送结果
     """
     import json as json_module
     
     async def generate_stream():
         try:
-            # 如果没有提供session_id，自动创建一个
-            if not request.session_id:
-                session_id = llm_chat_service.create_chat_session()
-            else:
-                session_id = request.session_id
+            session_id = request.session_id
             
-            logger.info(f"🌊 流式聊天开始 - session_id={session_id}")
+            # 发送开始状态
+            yield f"event: status\ndata: {json_module.dumps({'type': 'status', 'content': 'Processing...'})}\n\n"
             
-            # 调用流式聊天
-            async for chunk in llm_chat_service.stream_chat(
+            # 使用 llm_chat_service.chat() - 这会正确处理 system prompt 和工具调用
+            result = await llm_chat_service.chat(
                 session_id=session_id,
                 user_message=request.message,
                 include_tools=request.include_tools
-            ):
-                event_type = chunk.get("type", "content")
-                data = json_module.dumps(chunk, ensure_ascii=False)
-                yield f"event: {event_type}\ndata: {data}\n\n"
+            )
+            
+            if result.get("success"):
+                content = result.get("message", "")
+                thinking = result.get("thinking", "")
+                tool_results = result.get("tool_results", [])
+                
+                # 发送 thinking
+                if thinking:
+                    yield f"event: thinking\ndata: {json_module.dumps({'type': 'thinking', 'content': thinking}, ensure_ascii=False)}\n\n"
+                
+                # 发送工具结果
+                if tool_results:
+                    for tr in tool_results:
+                        yield f"event: tool_result\ndata: {json_module.dumps({'type': 'tool_result', 'tool_name': tr.get('tool_name', ''), 'result': str(tr.get('result', ''))[:200]}, ensure_ascii=False)}\n\n"
+                
+                # 发送内容
+                if content:
+                    yield f"event: content\ndata: {json_module.dumps({'type': 'content', 'content': content}, ensure_ascii=False)}\n\n"
+                
+                # 发送完成
+                yield f"event: done\ndata: {json_module.dumps({'type': 'done', 'success': True, 'content': content, 'thinking': thinking}, ensure_ascii=False)}\n\n"
+            else:
+                error = result.get("error", "Unknown error")
+                yield f"event: error\ndata: {json_module.dumps({'type': 'error', 'error': error}, ensure_ascii=False)}\n\n"
                 
         except Exception as e:
-            logger.error(f"流式聊天失败: {e}")
-            error_data = json_module.dumps({"error": str(e)}, ensure_ascii=False)
-            yield f"event: error\ndata: {error_data}\n\n"
+            logger.error(f"Streaming failed: {e}", exc_info=True)
+            yield f"event: error\ndata: {json_module.dumps({'type': 'error', 'error': str(e)}, ensure_ascii=False)}\n\n"
     
     return StreamingResponse(
         generate_stream(),
@@ -1913,6 +1935,201 @@ async def get_category_keywords(category: str):
 
 # 注册单位API路由
 app.include_router(unit_router)
+
+# ==================== Ecoinvent 匹配 API ====================
+
+class MatchFlowRequest(BaseModel):
+    """匹配流请求"""
+    flow_name: str = Field(..., description="流名称")
+    category: Optional[str] = Field(None, description="LCI 类别")
+    flow_type: Optional[str] = Field(None, description="流类型 (Input/Output)")
+    top_k: int = Field(5, description="返回结果数量")
+
+class ConfirmMatchRequest(BaseModel):
+    """确认匹配请求"""
+    session_id: str
+    action_id: str
+    ecoinvent_uuid: str
+
+@app.post("/ecoinvent/match-flow")
+async def match_ecoinvent_flow(request: MatchFlowRequest):
+    """将用户提取的流与 ecoinvent 数据库匹配"""
+    try:
+        matcher = get_ecoinvent_matcher()
+        results = matcher.match_flow(
+            flow_name=request.flow_name,
+            category=request.category,
+            flow_type=request.flow_type,
+            top_k=request.top_k
+        )
+        return {
+            "success": True,
+            "query": request.flow_name,
+            "matches": results
+        }
+    except Exception as e:
+        logger.error(f"匹配流失败: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/ecoinvent/match-session/{session_id}")
+async def match_session_flows(session_id: str):
+    """批量匹配会话中的所有 LCI 数据"""
+    try:
+        matcher = get_ecoinvent_matcher()
+        results = matcher.batch_match_session(session_id)
+        return results
+    except Exception as e:
+        logger.error(f"批量匹配失败: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/ecoinvent/confirm-match")
+async def confirm_ecoinvent_match(request: ConfirmMatchRequest):
+    """确认一个匹配结果"""
+    try:
+        matcher = get_ecoinvent_matcher()
+        result = matcher.confirm_match(
+            session_id=request.session_id,
+            action_id=request.action_id,
+            ecoinvent_uuid=request.ecoinvent_uuid
+        )
+        return result
+    except Exception as e:
+        logger.error(f"确认匹配失败: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/ecoinvent/search-flows")
+async def search_ecoinvent_flows(
+    query: str = Query(..., description="搜索关键词"),
+    limit: int = Query(10, description="返回数量")
+):
+    """直接搜索 ecoinvent flows"""
+    try:
+        db = mongodb_manager.get_database()
+        results = list(db.flows.find(
+            {"name": {"$regex": query, "$options": "i"}},
+            {"uuid": 1, "name": 1, "category": 1, "flowType": 1, "_id": 0}
+        ).limit(limit))
+        return {"success": True, "results": results}
+    except Exception as e:
+        logger.error(f"搜索失败: {e}")
+        return {"success": False, "error": str(e)}
+
+# ==================== openLCA IPC API ====================
+
+class OpenLCAConfigRequest(BaseModel):
+    """openLCA 配置请求"""
+    host: str = Field("localhost", description="openLCA IPC 主机地址")
+    port: int = Field(8080, description="openLCA IPC 端口")
+
+@app.get("/openlca/test")
+async def test_openlca_connection():
+    """测试 openLCA 连接"""
+    try:
+        client = get_openlca_client()
+        result = client.test_connection()
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/openlca/configure")
+async def configure_openlca(request: OpenLCAConfigRequest):
+    """配置 openLCA IPC 地址"""
+    try:
+        from backend.services.openlca_client import OpenLCAClient
+        global _client_instance
+        _client_instance = OpenLCAClient(host=request.host, port=request.port)
+        result = _client_instance.test_connection()
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/openlca/flows")
+async def get_openlca_flows(limit: int = Query(50, description="返回数量")):
+    """获取 openLCA 中的流"""
+    try:
+        client = get_openlca_client()
+        return client.get_flows(limit=limit)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/openlca/impact-methods")
+async def get_openlca_impact_methods():
+    """获取 openLCA 中的影响评价方法"""
+    try:
+        client = get_openlca_client()
+        return client.get_impact_methods()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# ==================== LCIA 计算 API ====================
+
+@app.get("/lcia/sessions")
+async def get_all_lci_sessions():
+    """获取所有有 LCI 数据的 session 列表"""
+    try:
+        calculator = get_lcia_calculator()
+        return calculator.get_all_sessions()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/lcia/session/{session_id}/data")
+async def get_session_lci_data(session_id: str):
+    """获取会话的 LCI 数据"""
+    try:
+        calculator = get_lcia_calculator()
+        return calculator.get_session_lci_data(session_id)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/lcia/methods")
+async def get_lcia_methods(limit: int = Query(50, description="返回数量")):
+    """获取可用的 LCIA 方法列表"""
+    try:
+        calculator = get_lcia_calculator()
+        return calculator.get_lcia_methods(limit=limit)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/lcia/methods/{method_uuid}")
+async def get_lcia_method_details(method_uuid: str):
+    """获取 LCIA 方法详情"""
+    try:
+        calculator = get_lcia_calculator()
+        return calculator.get_lcia_method_details(method_uuid)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/lcia/session/{session_id}/match")
+async def match_session_flows(session_id: str, use_llm: bool = False):
+    """批量匹配会话中所有流
+    
+    Args:
+        session_id: 会话 ID
+        use_llm: 是否使用 LLM 辅助重写流名称以提高匹配精度（默认 False）
+    """
+    try:
+        calculator = get_lcia_calculator()
+        return calculator.match_all_flows(session_id, use_llm_rewrite=use_llm)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+class LCIACalculationRequest(BaseModel):
+    """LCIA 计算请求"""
+    lcia_method_uuid: str = Field(..., description="LCIA 方法 UUID")
+    flow_mappings: List[Dict] = Field(default=[], description="流映射列表")
+
+@app.post("/lcia/session/{session_id}/calculate")
+async def calculate_lcia(session_id: str, request: LCIACalculationRequest):
+    """执行 LCIA 计算"""
+    try:
+        calculator = get_lcia_calculator()
+        return calculator.calculate_lcia(
+            session_id=session_id,
+            lcia_method_uuid=request.lcia_method_uuid,
+            flow_mappings=request.flow_mappings
+        )
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 # ==================== 系统管理API端点 ====================
 
