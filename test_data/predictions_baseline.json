@@ -1,0 +1,1011 @@
+[
+  {
+    "file": "short_001_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the energy used during the main manufacturing step.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-84434098df6a4b3d",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "Process Energy",
+            "electricity",
+            "power",
+            "consumption",
+            "energy usage"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b68ae30b2e7f240b",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Process Energy",
+          "name": "Total Electrical Energy",
+          "value": 5.508,
+          "unit": "kWh",
+          "note": "Derived from build time (3.24 hours) × average power (1.7 kW). Also confirmed in conclusion section (5.5 kWh approximation).",
+          "selected_chunk": {
+            "chunk_id": "6",
+            "content": "Total Electrical Energy | 5.508 | kWh | Derived from build time and average power."
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Total Electrical Energy",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "note": "Derived from build time (3.24 hours) × average power (1.7 kW). Also confirmed in conclusion section (5.5 kWh approximation).",
+        "chunk_id": "6"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_002_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record what's being produced in this aluminum alloy process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-865a4bbf1f00652c",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "aluminum alloy production",
+            "output",
+            "product",
+            "yield"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-9b2272a484b080f2",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Output",
+          "category": "Product",
+          "name": "Topology-optimized rocker arm",
+          "value": 0.009,
+          "unit": "kg",
+          "note": "Manufactured from AlSi10Mg alloy via SLM; 1 unit produced",
+          "selected_chunk": {
+            "chunk_id": "9",
+            "content": "## Table 2.1\n\n| Material Stream | Mass (kg) | Notes |\n|---|---|---|\n| Output - Final Product | 0.009 | Topology-optimized rocker arm (1 unit). |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Topology-optimized rocker arm",
+        "category": "Product",
+        "value": 0.009,
+        "unit": "kg",
+        "flow_type": "Output",
+        "note": "Manufactured from AlSi10Mg alloy via SLM; 1 unit produced",
+        "chunk_id": "9"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_003_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to extract the energy consumption data from this document.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-8833187484c04b7c",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "energy_consumption_2023",
+          "queries": [
+            "electricity",
+            "energy",
+            "power",
+            "kWh",
+            "kW",
+            "consumption",
+            "usage"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-8b09103021582c32",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "energy_consumption_2023",
+          "flow_type": "Input",
+          "category": "Process Energy",
+          "name": "SLM Machine Operation",
+          "value": 5.508,
+          "unit": "kWh",
+          "note": "Direct measurement over 3.24 h at 1.7 kW average power (Chunk 13)",
+          "selected_chunk": {
+            "chunk_id": "13",
+            "content": "SLM Machine Operation | 5.508 | Direct measurement over 3.24 h at 1.7 kW average power."
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-99586f19f4485f29",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "energy_consumption_2023",
+          "flow_type": "Input",
+          "category": "Feedstock Energy",
+          "name": "Powder Production",
+          "value": 0.023,
+          "unit": "kWh",
+          "note": "Calculated from powder mass (0.013 kg) and specific energy (1.8 kWh/kg) (Chunk 13)",
+          "selected_chunk": {
+            "chunk_id": "13",
+            "content": "Powder Production (Allocated) | 0.023 | Calculated from powder mass (0.013 kg) and specific energy (1.8 kWh/kg)."
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "SLM Machine Operation",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "note": "Direct measurement over 3.24 h at 1.7 kW average power (Chunk 13)",
+        "chunk_id": "13"
+      },
+      {
+        "flow_name": "Powder Production",
+        "category": "Feedstock Energy",
+        "value": 0.023,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "note": "Calculated from powder mass (0.013 kg) and specific energy (1.8 kWh/kg) (Chunk 13)",
+        "chunk_id": "13"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_004_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the cooling resources used in this manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-96fe2352ec5567c2",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "cooling",
+            "coolant",
+            "cooling media",
+            "cooling resources"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-933f002c30ef9154",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Cooling Media",
+          "name": "Cooling Water",
+          "value": 3.25,
+          "unit": "L",
+          "note": "Gas Atomization process stage - cooling water consumption",
+          "selected_chunk": {
+            "chunk_id": "16",
+            "content": "## Table 4.1\\n\\n| Process Stage | Parameter | Value | Unit |\\n|---|---|---|---|\\n| Gas Atomization | Cooling Water Used | 3.25 | L |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Cooling Water",
+        "category": "Cooling Media",
+        "value": 3.25,
+        "unit": "L",
+        "flow_type": "Input",
+        "note": "Gas Atomization process stage - cooling water consumption",
+        "chunk_id": "16"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_005_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the gases used in this manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-a742435e4b3cc5e8",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "gas",
+            "gases",
+            "nitrogen",
+            "argon",
+            "oxygen"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b4b86bc4db70834f",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Process Gas (Argon)",
+          "value": 1.12,
+          "unit": "m³",
+          "note": "Inert atmosphere consumption",
+          "selected_chunk": {
+            "chunk_id": "6",
+            "content": "Process Gas (Argon) | 1.12 | m³ | Inert atmosphere consumption."
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b540fdd4823e64a6",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Support Gas (Compressed Air)",
+          "value": 2.954,
+          "unit": "m³",
+          "note": "Powder recoating system",
+          "selected_chunk": {
+            "chunk_id": "6",
+            "content": "Support Gas (Compressed Air) | 2.954 | m³ | Used for powder recoating system."
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Process Gas (Argon)",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Inert atmosphere consumption",
+        "chunk_id": "6"
+      },
+      {
+        "flow_name": "Support Gas (Compressed Air)",
+        "category": "Gas",
+        "value": 2.954,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Powder recoating system",
+        "chunk_id": "6"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_006_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the gas used in the manufacturing process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_007_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the energy used during the manufacturing step.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-a6d4538c7fa75d82",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "electricity",
+            "power",
+            "energy consumption",
+            "process energy"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-92b444a8c52a12ef",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Process Energy",
+          "name": "Electrical Energy Consumption",
+          "value": 5.508,
+          "unit": "kWh",
+          "note": "Measured at machine power input; includes Laser System, Platform Heating, Recoater & Motion System, Cooling Unit. Specific energy: 612 kWh/kg",
+          "selected_chunk": {
+            "chunk_id": "16",
+            "content": "4.2 Energy Consumption Profile\\nEnergy consumption was measured at the machine power input. The total electrical energy consumed during\\nthe build cycle was 5.508 kWh. This value aligns closely with the calculated energy based on average power\\nand build time (1.7 kW * 3.24 h = 5.508 kWh).\\nA breakdown of energy use is conceptual, as the machine draws power for multiple subsystems simultaneously:\\n* Laser System: Primary energy consumer during exposure. * Platform Heating & Chamber Control:\\nMaintains the 150°\\u00b0C baseplate and inert atmosphere. * Recoater & Motion System: Periodic energy draws for"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Electrical Energy Consumption",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "note": "Measured at machine power input; includes Laser System, Platform Heating, Recoater & Motion System, Cooling Unit. Specific energy: 612 kWh/kg",
+        "chunk_id": "16"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_008_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the main material used in this aluminum alloy process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_009_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the gas used in this process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-a9e49adcb80cc623",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "gas",
+            "atmosphere",
+            "nitrogen",
+            "argon",
+            "oxygen"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-abe97b6dfbcbac87",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Nitrogen",
+          "value": 1.12,
+          "unit": "m³",
+          "note": "Primary inert atmosphere during build. Purity: 99.999%",
+          "selected_chunk": {
+            "chunk_id": "20",
+            "content": "## Table 4.1\\n\\n| Resource | Type | Consumption | Purpose / Notes |\\n|---|---|---|---|\\n| Nitrogen | Process Gas | 1.120 m\\u00b3 | Primary inert atmosphere during build. Purity: 99.999%. |\\n| Compressed Air | Process Gas | 2.954 m\\u00b3 | Used for pneumatic actuation of the recoater blade and seals. |\\n| Argon | Feedstock Gas | 0.081 kg | Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield. |\\n| Cooling Water | Process Fluid | 3.250 L | Upstream use: Volume of cooling water used in the gas-atomization process for powder feedstock production. |\\n"
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-bcd6fd03e10c4f78",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Compressed Air",
+          "value": 2.954,
+          "unit": "m³",
+          "note": "Pneumatic actuation of recoater blade and seals",
+          "selected_chunk": {
+            "chunk_id": "20",
+            "content": "## Table 4.1\\n\\n| Resource | Type | Consumption | Purpose / Notes |\\n|---|---|---|---|\\n| Nitrogen | Process Gas | 1.120 m\\u00b3 | Primary inert atmosphere during build. Purity: 99.999%. |\\n| Compressed Air | Process Gas | 2.954 m\\u00b3 | Used for pneumatic actuation of the recoater blade and seals. |\\n| Argon | Feedstock Gas | 0.081 kg | Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield. |\\n| Cooling Water | Process Fluid | 3.250 L | Upstream use: Volume of cooling water used in the gas-atomization process for powder feedstock production. |\\n"
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-8f434ae6dccfc479",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Feedstock Energy",
+          "name": "Argon",
+          "value": 0.081,
+          "unit": "kg",
+          "note": "Gas-atomization process for powder production",
+          "selected_chunk": {
+            "chunk_id": "20",
+            "content": "## Table 4.1\\n\\n| Resource | Type | Consumption | Purpose / Notes |\\n|---|---|---|---|\\n| Nitrogen | Process Gas | 1.120 m\\u00b3 | Primary inert atmosphere during build. Purity: 99.999%. |\\n| Compressed Air | Process Gas | 2.954 m\\u00b3 | Used for pneumatic actuation of the recoater blade and seals. |\\n| Argon | Feedstock Gas | 0.081 kg | Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield. |\\n| Cooling Water | Process Fluid | 3.250 L | Upstream use: Volume of cooling water used in the gas-atomization process for powder feedstock production. |\\n"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Nitrogen",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Primary inert atmosphere during build. Purity: 99.999%",
+        "chunk_id": "20"
+      },
+      {
+        "flow_name": "Compressed Air",
+        "category": "Gas",
+        "value": 2.954,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Pneumatic actuation of recoater blade and seals",
+        "chunk_id": "20"
+      },
+      {
+        "flow_name": "Argon",
+        "category": "Feedstock Energy",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "note": "Gas-atomization process for powder production",
+        "chunk_id": "20"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_010_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the main material used in this process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-affe7f7cab06442c",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "raw material",
+            "material used",
+            "powder",
+            "metal"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-8c198087a40fa323",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Raw Material",
+          "name": "AlSi10Mg Powder",
+          "value": 0.013,
+          "unit": "kg",
+          "note": "Powder weighed into system for this build job (Table 3.1)",
+          "selected_chunk": {
+            "chunk_id": "15",
+            "content": "## Table 3.1\n\n| Flow | Mass (kg) | Notes / Derivation |\n|---|---|---|\n| Input: AlSi10Mg Powder Loaded | 0.013 | Powder weighed into system for this build job. |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "AlSi10Mg Powder",
+        "category": "Raw Material",
+        "value": 0.013,
+        "unit": "kg",
+        "flow_type": "Input",
+        "note": "Powder weighed into system for this build job (Table 3.1)",
+        "chunk_id": "15"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_011_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the inert gases used in this manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-8bd5c7291c0f00e9",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "inert gas",
+            "inert gases",
+            "argon usage",
+            "nitrogen consumption"
+          ]
+        }
+      }
+    ],
+    "records": [],
+    "turns": 2
+  },
+  {
+    "file": "short_012_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the electricity used during the manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-86d6186bd1eb0089",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "electricity",
+            "power",
+            "energy consumption",
+            "kWh"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b4d7781d6a9519b7",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Process Energy",
+          "name": "SLM Process Electricity",
+          "value": 5.508,
+          "unit": "kWh",
+          "note": "Calculated from 1.7 kW average machine power * 3.24 h build time (Build A, Table 3.1)",
+          "selected_chunk": {
+            "chunk_id": "17",
+            "content": "## Table 3.1\n\n| Energy Component | Build A (Baseline) | Build B (High Speed) | Build C (Recycled\nPowder) |\n|---|---|---|---|\n| SLM Process Electricity | 5.508 kWh | 5.39 kWh | 5.508 kWh |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "SLM Process Electricity",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "note": "Calculated from 1.7 kW average machine power * 3.24 h build time (Build A, Table 3.1)",
+        "chunk_id": "17"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_013_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the energy consumption data from this document.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_014_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the cooling media used in this manufacturing process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_015_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the gas used in the manufacturing process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_016_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the main output from this additive manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-9163f48a08a7fbd3",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "product",
+            "output",
+            "final product",
+            "316L impeller"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-9fee4f8816533010",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Output",
+          "category": "Product",
+          "name": "Rocker Arm (as-built, post-SLM)",
+          "value": 0.009,
+          "unit": "kg",
+          "note": "Part Marked: \"ROCK-8472-01\", Linked to Build #SLM-B-8472, Powder Lot ALSI-P-77843-01",
+          "selected_chunk": {
+            "chunk_id": "13",
+            "content": "## Table 3.1\\n\\n| Output Type | Description | Quantity | Mass (kg) | Traceability\\nInformation |\\n|---|---|---|---|---|\\n| Product | Rocker Arm (as- built, post-SLM) | 1 unit | 0.009 | Part Marked: \\u201cROCK-8472-01\\u201d, Linked to Build #SLM-B-8472, Powder Lot ALSI- P-77843-01 |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Rocker Arm (as-built, post-SLM)",
+        "category": "Product",
+        "value": 0.009,
+        "unit": "kg",
+        "flow_type": "Output",
+        "note": "Part Marked: \"ROCK-8472-01\", Linked to Build #SLM-B-8472, Powder Lot ALSI-P-77843-01",
+        "chunk_id": "13"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_017_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the inert gas used in this process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-90fec98b3471daa1",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "inert gas",
+            "nitrogen",
+            "argon"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-a8bacc15147fdeff",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Nitrogen",
+          "value": 1.12,
+          "unit": "m³",
+          "note": "Primary inert atmosphere during build. Purity: 99.999%",
+          "selected_chunk": {
+            "chunk_id": "20",
+            "content": "## Table 4.1\\n\\n| Resource | Type | Consumption | Purpose / Notes |\\n|---|---|---|---|\\n| Nitrogen | Process Gas | 1.120 m³ | Primary inert atmosphere during build. Purity: 99.999%. |\\n| Compressed Air | Process Gas | 2.954 m³ | Used for pneumatic actuation of the recoater blade and seals. |\\n| Argon | Feedstock Gas | 0.081 kg | Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield. |\\n| Cooling Water | Process Fluid | 3.250 L | Upstream use: Volume of cooling water used in the gas-atomization process for powder feedstock production. |\\n"
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b67af80fc5461548",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Argon",
+          "value": 0.081,
+          "unit": "kg",
+          "note": "Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield.",
+          "selected_chunk": {
+            "chunk_id": "20",
+            "content": "## Table 4.1\\n\\n| Resource | Type | Consumption | Purpose / Notes |\\n|---|---|---|---|\\n| Nitrogen | Process Gas | 1.120 m³ | Primary inert atmosphere during build. Purity: 99.999%. |\\n| Compressed Air | Process Gas | 2.954 m³ | Used for pneumatic actuation of the recoater blade and seals. |\\n| Argon | Feedstock Gas | 0.081 kg | Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield. |\\n| Cooling Water | Process Fluid | 3.250 L | Upstream use: Volume of cooling water used in the gas-atomization process for powder feedstock production. |\\n"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Nitrogen",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Primary inert atmosphere during build. Purity: 99.999%",
+        "chunk_id": "20"
+      },
+      {
+        "flow_name": "Argon",
+        "category": "Gas",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "note": "Upstream use: Mass of argon consumed in the gas-atomization process to produce the 0.013 kg of powder used in this build. Calculated from atomization yield.",
+        "chunk_id": "20"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_018_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the raw material used in this process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_019_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the main output from this aluminum alloy manufacturing process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_020_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the cooling media used in the machining process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-861c297cfc291459",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "cooling media",
+            "machining",
+            "coolant"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-ae9f6e04ead2d1e5",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Cooling Media",
+          "name": "Process Water",
+          "value": 16.8,
+          "unit": "kg",
+          "note": "Cooling Media for Water Atomization (from Table 2.1)",
+          "selected_chunk": {
+            "chunk_id": "9",
+            "content": "## Table 2.1\n\n| Material Input | Quantity | Application |\n|---|---|---|\n| X2CrNiMo1712 Stainless Steel | 4.11 kg | Powder Atomization Base Material |\n| Process Water | 16.8 kg | Cooling Media for Water Atomization |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Process Water",
+        "category": "Cooling Media",
+        "value": 16.8,
+        "unit": "kg",
+        "flow_type": "Input",
+        "note": "Cooling Media for Water Atomization (from Table 2.1)",
+        "chunk_id": "9"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_021_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the energy used to produce the metal powder for this additive manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-a21ffd05831264a6",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "default_session_123",
+          "queries": [
+            "metal powder production energy",
+            "powder production energy",
+            "feedstock energy consumption"
+          ]
+        }
+      }
+    ],
+    "records": [],
+    "turns": 2
+  },
+  {
+    "file": "short_022_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the raw material used in this 3D printing process.",
+    "tool_calls": [],
+    "records": [],
+    "turns": 1
+  },
+  {
+    "file": "short_023_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the inert gas used in this process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-a5f5d8d3217c40fe",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "inert gas",
+            "nitrogen",
+            "argon",
+            "gas"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-926c86579f455b6a",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Argon shielding and processing gas",
+          "value": 3.08,
+          "unit": "kg",
+          "note": "Calculated from process parameters (includes shielding and processing)",
+          "selected_chunk": {
+            "chunk_id": "15",
+            "content": "## Table 3.1\n\n| Category | Material/Product | Quantity | Notes |\n|---|---|---|---|\n| Inputs | X2CrNiMo1712 stainless steel (316L base material) | 4.11 kg | Raw material for powder production |\n|  | Process water for water atomization | 16.8 kg | Cooling media for powder production |\n|  | Argon shielding and processing gas | 3.08 kg | Calculated from process parameters |"
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Argon shielding and processing gas",
+        "category": "Gas",
+        "value": 3.08,
+        "unit": "kg",
+        "flow_type": "Input",
+        "note": "Calculated from process parameters (includes shielding and processing)",
+        "chunk_id": "15"
+      }
+    ],
+    "turns": 3
+  },
+  {
+    "file": "short_024_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to document the electricity used during the main manufacturing step.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-b5a1563e79ac35eb",
+        "name": "define_lca_scope",
+        "arguments": {
+          "session_id": "session_123",
+          "functional_unit": "manufacturing a 316L impeller by SLM"
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b965bb9e6214491f",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "electricity",
+            "power",
+            "energy consumption"
+          ]
+        }
+      }
+    ],
+    "records": [],
+    "turns": 2
+  },
+  {
+    "file": "short_025_complete.json",
+    "type": "SHORT_E",
+    "user_request": "I need to record the gases used in the manufacturing process.",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-b0b7b3a454fbb243",
+        "name": "search_document",
+        "arguments": {
+          "session_id": "session_123",
+          "queries": [
+            "gas",
+            "gases",
+            "nitrogen",
+            "argon",
+            "oxygen"
+          ]
+        }
+      },
+      {
+        "id": "chatcmpl-tool-a274df26328d5518",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Argon (Powder Atomization)",
+          "value": 0.081,
+          "unit": "kg",
+          "note": "Inert gas used in gas atomization process for powder production",
+          "selected_chunk": {
+            "chunk_id": "19",
+            "content": "Argon (for Powder Atomization) | 0.081 kg | Inert gas used in the gas atomization process to produce the metal powder."
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-bae788686f8622f7",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Nitrogen (SLM Process)",
+          "value": 1.12,
+          "unit": "m³",
+          "note": "Used for initial purging and cover gas in SLM machine configurations",
+          "selected_chunk": {
+            "chunk_id": "19",
+            "content": "Nitrogen (for SLM Process) | 1.12 m³ | Used for initial purging and as a cover gas in certain machine configurations or during powder handling to prevent oxidation."
+          }
+        }
+      },
+      {
+        "id": "chatcmpl-tool-b32aaa7ce42e1b72",
+        "name": "record_process_flow",
+        "arguments": {
+          "session_id": "session_123",
+          "flow_type": "Input",
+          "category": "Gas",
+          "name": "Compressed Air",
+          "value": 2.954,
+          "unit": "m³",
+          "note": "Used for pneumatic system actuation and machine operation",
+          "selected_chunk": {
+            "chunk_id": "20",
+            "content": "Compressed Air (for SLM Process) | 2.954 m³ | Used for pneumatic system actuation, filter cleaning pulses, and general machine operation."
+          }
+        }
+      }
+    ],
+    "records": [
+      {
+        "flow_name": "Argon (Powder Atomization)",
+        "category": "Gas",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "note": "Inert gas used in gas atomization process for powder production",
+        "chunk_id": "19"
+      },
+      {
+        "flow_name": "Nitrogen (SLM Process)",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Used for initial purging and cover gas in SLM machine configurations",
+        "chunk_id": "19"
+      },
+      {
+        "flow_name": "Compressed Air",
+        "category": "Gas",
+        "value": 2.954,
+        "unit": "m³",
+        "flow_type": "Input",
+        "note": "Used for pneumatic system actuation and machine operation",
+        "chunk_id": "20"
+      }
+    ],
+    "turns": 3
+  }
+]

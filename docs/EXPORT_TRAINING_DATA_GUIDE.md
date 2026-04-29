@@ -59,7 +59,7 @@
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_dialogues.py \
-  --output-dir dataset/short_extract/doc4 \
+  --output-dir dataset/short_extract/doc9 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -112,7 +112,7 @@ python scripts/batch_process_short_dialogues.py \
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_short_qa.py \
-  --output-dir dataset/short_qa/doc4 \
+  --output-dir dataset/short_qa/doc9 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 
@@ -128,7 +128,7 @@ python scripts/batch_process_short_qa.py \
 
 **输出文件**：
 ```
-dataset/short_qa/doc4/
+dataset/short_qa/doc9/
 ├── qa_001_exported.json         # 导出阶段（保留 record）
 ├── qa_001_improved.json         # 改进阶段（高质量 name/note）
 ├── qa_001_complete.json         # 完成阶段（最终使用，QA 格式）
@@ -189,7 +189,7 @@ dataset/short_qa/doc4/
 **批量处理脚本**：
 ```bash
 python scripts/batch_process_full_dialogues.py \
-  --output-dir dataset/full/doc8 \
+  --output-dir dataset/full/doc9 \
   --api-key "sk-b9f348bb5ba4437faa5a7253d085fd44"
 ```
 

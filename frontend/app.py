@@ -261,7 +261,7 @@ def match_session_flows(session_id: str, use_llm: bool = False) -> dict:
         use_llm: 是否使用 LLM 辅助重写流名称以提高匹配精度
     """
     try:
-        params = {"use_llm": "true"} if use_llm else {}
+        params = {"use_llm": str(use_llm).lower()}  # 明确传递 true/false
         response = requests.get(f"{BACKEND_URL}/lcia/session/{session_id}/match", params=params)
         if response.status_code == 200:
             return response.json()
@@ -496,37 +496,54 @@ with st.sidebar:
     with st.expander("Match Ecoinvent", expanded=False):
         if st.session_state.lci_data:
             # LLM 辅助匹配选项
-            use_llm = st.checkbox("Use LLM-assisted matching", value=False, 
-                                  help="Use LLM to rewrite flow names for better matching accuracy")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                use_llm = st.checkbox("Use LLM-assisted matching", value=False, 
+                                      help="Use LLM to rewrite flow names for better matching accuracy (slower but more accurate)")
+            with col2:
+                if st.session_state.match_results:
+                    matched = sum(1 for r in st.session_state.match_results.get("results", []) if r.get("matches"))
+                    total = st.session_state.match_results.get('total_flows', 0)
+                    st.metric("Matched", f"{matched}/{total}")
             
             if st.button("Auto Match All", use_container_width=True, key="match_all"):
-                with st.spinner("Matching flows to ecoinvent..." + (" (LLM)" if use_llm else "")):
+                # 清除旧的匹配结果
+                st.session_state.match_results = None
+                
+                with st.spinner("Matching flows to ecoinvent..." + (" (with LLM)" if use_llm else " (with context)")):
+                    # 使用批量匹配 API，自动传递上下文信息
                     result = match_session_flows(st.session_state.selected_lcia_session, use_llm=use_llm)
                     if result.get("success"):
                         st.session_state.match_results = result
                         matched = sum(1 for r in result.get("results", []) if r.get("matches"))
-                        st.success(f"✓ Matched {matched}/{result.get('total_flows', 0)} flows")
+                        total = result.get('total_flows', 0)
+                        avg_sim = sum(r.get("matches", [{}])[0].get("similarity", 0) 
+                                     for r in result.get("results", []) if r.get("matches")) / max(matched, 1)
+                        st.success(f"✓ Matched {matched}/{total} flows (avg similarity: {avg_sim:.2f})")
+                        st.rerun()  # 强制刷新显示
                     else:
                         st.error(result.get("error", "Failed")[:50])
             
-            # 显示匹配结果（更详细）
+            # 显示匹配结果
             if st.session_state.match_results:
                 st.markdown("---")
+                
                 for r in st.session_state.match_results.get("results", []):
                     orig = r.get("original", {})
                     matches = r.get("matches", [])
+                    skip_reason = r.get("skip_reason")
                     
-                    # 原始流信息
-                    with st.container():
-                        st.markdown(f"**{orig.get('name', 'N/A')}**")
-                        st.caption(f"{orig.get('value', '')} {orig.get('unit', '')} | {orig.get('category', '')}")
-                        
-                        if matches:
-                            best = matches[0]
-                            st.success(f"→ {best['name']} (sim: {best['similarity']:.2f})")
-                        else:
-                            st.warning("→ No match found")
-                        st.markdown("---")
+                    st.markdown(f"**{orig.get('name', 'N/A')}**")
+                    st.caption(f"{orig.get('value', '')} {orig.get('unit', '')} | {orig.get('category', '')}")
+                    
+                    if skip_reason:
+                        st.text(f"  Skipped: {skip_reason}")
+                    elif matches:
+                        best = matches[0]
+                        st.text(f"  → {best['name']}")
+                    else:
+                        st.text("  → No match found")
+                    st.markdown("---")
         else:
             st.info("Load LCI data first")
     
@@ -567,27 +584,13 @@ with st.sidebar:
         if st.button("Run LCIA Calculation", use_container_width=True, 
                     disabled=not can_calculate, key="run_lcia"):
             with st.spinner("Calculating LCIA..."):
-                # 构建流映射（从匹配结果中提取）
-                flow_mappings = []
-                if st.session_state.match_results:
-                    for r in st.session_state.match_results.get("results", []):
-                        matches = r.get("matches", [])
-                        if matches:
-                            flow_mappings.append({
-                                "action_id": r.get("action_id"),
-                                "ecoinvent_uuid": matches[0].get("uuid")
-                            })
-                
                 result = calculate_lcia(
                     st.session_state.selected_lcia_session,
                     st.session_state.selected_method.get("uuid"),
-                    flow_mappings
+                    []
                 )
-                if result.get("success"):
-                    st.success("✓ Calculation complete!")
-                    st.json(result.get("results", {}))
-                else:
-                    st.error(result.get("error", "Failed"))
+                
+                st.session_state.lcia_result = result
         
         if not can_calculate:
             missing = []
@@ -598,6 +601,109 @@ with st.sidebar:
             if not st.session_state.selected_method:
                 missing.append("LCIA method")
             st.caption(f"Missing: {', '.join(missing)}")
+    
+    # Display LCIA results in sidebar
+    if hasattr(st.session_state, 'lcia_result') and st.session_state.lcia_result:
+        result = st.session_state.lcia_result
+        if result.get("success"):
+            results = result.get("results", {})
+            status = results.get("status")
+            
+            if status == "completed":
+                # Display completed LCIA calculation results
+                st.success("✓ LCIA Calculation Completed!")
+                st.info(results.get("message", "LCIA calculation completed successfully"))
+                
+                # Display statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Flows", results.get("total_flows", 0))
+                with col2:
+                    st.metric("Matched", results.get("exchanges_count", 0))
+                with col3:
+                    st.metric("Impact Categories", results.get("impact_count", 0))
+                
+                # Display functional unit
+                st.markdown(f"**Functional Unit:** {results.get('functional_unit', 'N/A')}")
+                
+                # Display impact results
+                st.markdown("### Environmental Impact Results")
+                impacts = results.get("impacts", [])
+                if impacts:
+                    for impact in impacts:
+                        with st.expander(f"{impact.get('category', 'Unknown')}: {impact.get('amount', 0):.6e} {impact.get('unit', '')}"):
+                            st.write(f"**Amount:** {impact.get('amount', 0):.6e}")
+                            st.write(f"**Unit:** {impact.get('unit', 'N/A')}")
+                            if impact.get('description'):
+                                st.write(f"**Description:** {impact.get('description')}")
+                else:
+                    st.warning("No impact results available")
+                
+                # Display major flows inventory
+                flow_contributions = results.get("flow_contributions", [])
+                
+                if flow_contributions:
+                    st.markdown("### Major Flows Inventory")
+                    st.caption(f"Showing top {len(flow_contributions)} flows by amount")
+                    
+                    for i, flow_contrib in enumerate(flow_contributions, 1):
+                        flow_name = flow_contrib.get("flow_name", "Unknown")
+                        flow_category = flow_contrib.get("flow_category", "")
+                        flow_amount = flow_contrib.get("flow_amount", 0)
+                        flow_unit = flow_contrib.get("flow_unit", "")
+                        is_input = flow_contrib.get("is_input", False)
+                        
+                        # Determine flow direction
+                        direction = "Input" if is_input else "Output"
+                        
+                        # Create expander title with flow info
+                        expander_title = f"{i}. {flow_name}: {flow_amount:.4g} {flow_unit} ({direction})"
+                        
+                        with st.expander(expander_title):
+                            st.write(f"**Flow:** {flow_name}")
+                            st.write(f"**Category:** {flow_category if flow_category else 'N/A'}")
+                            st.write(f"**Amount:** {flow_amount:.6e} {flow_unit}")
+                            st.write(f"**Direction:** {direction}")
+                            
+                            # Add explanation
+                            if abs(flow_amount) > 1000:
+                                st.info("This is a major contributor to the inventory")
+                            elif abs(flow_amount) < 0:
+                                st.info("Negative value indicates avoided burden or credit")
+            
+            elif status == "ready":
+                # Display prepared data (fallback)
+                st.success("✓ LCIA Data Prepared!")
+                st.info(results.get("message", "LCIA calculation data has been prepared"))
+                
+                # Display statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Flows", results.get("total_flows", 0))
+                with col2:
+                    st.metric("Matched", results.get("exchanges_count", 0))
+                with col3:
+                    functional_unit = results.get("functional_unit", "N/A")
+                    if len(str(functional_unit)) > 20:
+                        functional_unit = str(functional_unit)[:17] + "..."
+                    st.metric("Functional Unit", functional_unit)
+                
+                # Display exchanges list
+                st.markdown("### 📊 Exchanges Data")
+                exchanges = results.get("exchanges", [])
+                if exchanges:
+                    for i, ex in enumerate(exchanges, 1):
+                        with st.expander(f"Exchange {i}: {ex.get('amount')} {ex.get('unit')}"):
+                            st.json(ex)
+                
+                # Display note
+                if result.get("note"):
+                    st.warning(result.get("note"))
+            else:
+                st.success("✓ Calculation complete!")
+                st.json(results)
+        else:
+            st.error(result.get("error", "Failed"))
 
 # ==================== MAIN INTERFACE ====================
 

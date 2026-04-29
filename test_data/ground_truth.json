@@ -1,0 +1,643 @@
+[
+  {
+    "file": "full_001_with_think.json",
+    "type": "FULL",
+    "records": [
+      {
+        "flow_name": " One topology-optimized rocker arm",
+        "category": "Product",
+        "value": 0.009,
+        "unit": "kg",
+        "flow_type": "Output",
+        "chunk_id": "9",
+        "note": "Final Product"
+      },
+      {
+        "flow_name": "Aluminum alloy powder, AlSi10Mg",
+        "category": "Recovered Material",
+        "value": 0.004,
+        "unit": "kg",
+        "flow_type": "Output",
+        "chunk_id": "9",
+        "note": "Unused powder, gas-atomized, recovered from build chamber after laser powder bed fusion process."
+      },
+      {
+        "flow_name": "Aluminum alloy powder, AlSi10Mg",
+        "category": "Raw Material",
+        "value": 0.013,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "9",
+        "note": "Virgin powder, gas-atomized, for laser powder bed fusion."
+      },
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "For operation of selective laser melting (SLM) machine, average power 1.7 kW over 3.24 hours."
+      },
+      {
+        "flow_name": "Electricity",
+        "category": "Feedstock Energy",
+        "value": 0.023,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "For gas-atomized powder production of AlSi10Mg, allocated based on specific energy of 1.8 kWh/kg."
+      },
+      {
+        "flow_name": "Nitrogen, gaseous",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "For chamber purging and maintaining inert atmosphere during selective laser melting process."
+      },
+      {
+        "flow_name": "Air, compressed",
+        "category": "Gas",
+        "value": 2.954,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "For pneumatic functions of selective laser melting machine, including filter cleaning and actuator movement."
+      },
+      {
+        "flow_name": "Argon, gaseous",
+        "category": "Gas",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "Used as atomizing medium for gas-atomized production of AlSi10Mg powder, allocated."
+      },
+      {
+        "flow_name": "Water, cooling",
+        "category": "Cooling Media",
+        "value": 3.25,
+        "unit": "L",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "For cooling atomization chamber and equipment during gas-atomized powder production, allocated."
+      }
+    ]
+  },
+  {
+    "file": "short_001_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "6",
+        "note": "Low voltage, from grid mix, for metal additive manufacturing (L-PBF)"
+      }
+    ]
+  },
+  {
+    "file": "short_002_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Topology-optimized rocker arm",
+        "category": "Product",
+        "value": 0.009,
+        "unit": "kg",
+        "flow_type": "Output",
+        "chunk_id": "9",
+        "note": "Final Product"
+      }
+    ]
+  },
+  {
+    "file": "short_003_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "For selective laser melting machine operation, average power 1.7 kW"
+      },
+      {
+        "flow_name": "Electricity",
+        "category": "Feedstock Energy",
+        "value": 0.023,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "For gas-atomized AlSi10Mg powder production, specific energy 1.8 kWh/kg"
+      }
+    ]
+  },
+  {
+    "file": "short_004_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Water, cooling",
+        "category": "Cooling Media",
+        "value": 3.25,
+        "unit": "L",
+        "flow_type": "Input",
+        "chunk_id": "16",
+        "note": "Used in gas atomization process"
+      }
+    ]
+  },
+  {
+    "file": "short_005_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Argon",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "6",
+        "note": "Process gas, for inert atmosphere in additive manufacturing"
+      },
+      {
+        "flow_name": "Compressed air",
+        "category": "Gas",
+        "value": 2.954,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "6",
+        "note": "Support gas, for powder recoating system in additive manufacturing"
+      }
+    ]
+  },
+  {
+    "file": "short_006_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Nitrogen",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "22",
+        "note": "Inert process atmosphere for selective laser melting"
+      }
+    ]
+  },
+  {
+    "file": "short_007_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "16",
+        "note": "Total electrical energy consumed during build cycle, measured at machine power input, for laser powder bed fusion system"
+      }
+    ]
+  },
+  {
+    "file": "short_008_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Aluminum alloy powder, AlSi10Mg",
+        "category": "Raw Material",
+        "value": 0.013,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "9",
+        "note": "Virgin powder, gas-atomized"
+      }
+    ]
+  },
+  {
+    "file": "short_009_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Argon",
+        "category": "Gas",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "20",
+        "note": "Feedstock gas, consumed in gas-atomization process to produce AlSi10Mg powder used in this build"
+      }
+    ]
+  },
+  {
+    "file": "short_010_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Aluminum alloy powder, AlSi10Mg",
+        "category": "Raw Material",
+        "value": 0.013,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "Powder loaded into additive manufacturing system for a build job."
+      }
+    ]
+  },
+  {
+    "file": "short_011_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Nitrogen gas",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "Inert atmosphere during build, main process gas."
+      },
+      {
+        "flow_name": "Argon gas",
+        "category": "Gas",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "For powder production."
+      },
+      {
+        "flow_name": "Compressed air",
+        "category": "Gas",
+        "value": 2.954,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "13",
+        "note": "Powder deposition, cylinder movement, sealing."
+      }
+    ]
+  },
+  {
+    "file": "short_012_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 5.508,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "17",
+        "note": "For selective laser melting (SLM) process"
+      }
+    ]
+  },
+  {
+    "file": "short_013_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 64.92,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "For Selective Laser Melting process"
+      },
+      {
+        "flow_name": "Electricity",
+        "category": "Feedstock Energy",
+        "value": 2.55,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "For Water Atomization process"
+      }
+    ]
+  },
+  {
+    "file": "short_014_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Cooling water",
+        "category": "Cooling Media",
+        "value": 3.25,
+        "unit": "L",
+        "flow_type": "Input",
+        "chunk_id": "16",
+        "note": "Cooling water for the atomization chamber and equipment."
+      }
+    ]
+  },
+  {
+    "file": "short_015_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Argon gas",
+        "category": "Gas",
+        "value": 3.08,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "11",
+        "note": "Shielding and processing medium for SLM process, includes initial chamber fill and per-component consumption"
+      }
+    ]
+  },
+  {
+    "file": "short_016_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Rocker Arm",
+        "category": "Product",
+        "value": 0.009,
+        "unit": "kg",
+        "flow_type": "Output",
+        "chunk_id": "13",
+        "note": "as- built, post-SLM"
+      }
+    ]
+  },
+  {
+    "file": "short_017_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Nitrogen gas, industrial grade",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "20",
+        "note": "Process gas, primary inert atmosphere during build. Purity: 99.999%."
+      }
+    ]
+  },
+  {
+    "file": "short_018_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Stainless steel, 316L grade",
+        "category": "Raw Material",
+        "value": 4.11,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "2",
+        "note": "X2CrNiMo1712 (316L base), from MetalAlloy Inc."
+      }
+    ]
+  },
+  {
+    "file": "short_019_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Rocker Arm",
+        "category": "Product",
+        "value": 0.009,
+        "unit": "kg",
+        "flow_type": "Output",
+        "chunk_id": "12",
+        "note": "“As-built” mass of the topology- optimized component."
+      }
+    ]
+  },
+  {
+    "file": "short_020_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Water, process",
+        "category": "Cooling Media",
+        "value": 16.8,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "9",
+        "note": "Cooling media for water atomization"
+      }
+    ]
+  },
+  {
+    "file": "short_021_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Feedstock Energy",
+        "value": 2.55,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "9",
+        "note": "For water atomization process"
+      }
+    ]
+  },
+  {
+    "file": "short_022_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Stainless steel, X2CrNiMo1712",
+        "category": "Raw Material",
+        "value": 4.11,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "7",
+        "note": "Base material for powder production"
+      }
+    ]
+  },
+  {
+    "file": "short_023_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Argon gas",
+        "category": "Gas",
+        "value": 3.08,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "15",
+        "note": "Shielding and processing gas for powder production"
+      }
+    ]
+  },
+  {
+    "file": "short_024_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Electricity",
+        "category": "Process Energy",
+        "value": 10.335,
+        "unit": "kWh",
+        "flow_type": "Input",
+        "chunk_id": "28",
+        "note": "Total energy consumption for manufacturing process"
+      }
+    ]
+  },
+  {
+    "file": "short_025_complete.json",
+    "type": "SHORT_E",
+    "records": [
+      {
+        "flow_name": "Argon",
+        "category": "Gas",
+        "value": 0.081,
+        "unit": "kg",
+        "flow_type": "Input",
+        "chunk_id": "19",
+        "note": "For powder atomization, inert gas used in gas atomization process to produce metal powder."
+      },
+      {
+        "flow_name": "Nitrogen",
+        "category": "Gas",
+        "value": 1.12,
+        "unit": "m³",
+        "flow_type": "Input",
+        "chunk_id": "19",
+        "note": "For SLM process, used for initial purging and as a cover gas in certain machine configurations or during powder handling to prevent oxidation."
+      }
+    ]
+  },
+  {
+    "file": "qa_001_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_002_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_003_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_004_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_005_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_006_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_007_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_008_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_009_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_010_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_011_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_012_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_013_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_014_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_015_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_016_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_017_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_018_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_019_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_020_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_021_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_022_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_023_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_024_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  },
+  {
+    "file": "qa_025_complete.json",
+    "type": "SHORT_QA",
+    "records": []
+  }
+]

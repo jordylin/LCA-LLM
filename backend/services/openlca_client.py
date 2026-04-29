@@ -110,6 +110,29 @@ class OpenLCAClient:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    def get_flow_info(self, flow_id: str) -> Dict[str, Any]:
+        """
+        获取流量的详细信息（包括 flowProperties 和 units）
+        
+        Args:
+            flow_id: Flow UUID
+            
+        Returns:
+            Flow 详细信息
+        """
+        try:
+            response = self._call_rpc("data/get", {"@type": "Flow", "@id": flow_id})
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "flow": response.get("result")
+            }
+        except Exception as e:
+            logger.error(f"获取 Flow 信息失败: {e}")
+            return {"success": False, "error": str(e)}
+    
     def get_impact_methods(self) -> Dict[str, Any]:
         """获取可用的影响评价方法"""
         try:
@@ -152,18 +175,20 @@ class OpenLCAClient:
             return {"success": False, "error": str(e)}
     
     def calculate(self,
-                  product_system_id: str,
+                  target_id: str,
+                  target_type: str = "Process",
                   impact_method_id: str = None) -> Dict[str, Any]:
         """
-        执行 LCA 计算
+        Execute LCA calculation
         
         Args:
-            product_system_id: 产品系统 UUID
-            impact_method_id: 影响评价方法 UUID（可选）
+            target_id: Target UUID (Process or ProductSystem)
+            target_type: Target type ("Process" or "ProductSystem")
+            impact_method_id: Impact method UUID (optional)
         """
         try:
             params = {
-                "productSystem": {"@type": "ProductSystem", "@id": product_system_id}
+                "target": {"@type": target_type, "@id": target_id}
             }
             
             if impact_method_id:
@@ -177,6 +202,159 @@ class OpenLCAClient:
                 "success": True,
                 "result": response.get("result")
             }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_result_state(self, result_id: str) -> Dict[str, Any]:
+        """
+        Get calculation result state
+        
+        Args:
+            result_id: Result UUID
+        """
+        try:
+            response = self._call_rpc("result/state", {"@id": result_id})
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "state": response.get("result")
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_total_impacts(self, result_id: str) -> Dict[str, Any]:
+        """
+        Get total impact assessment results
+        
+        Args:
+            result_id: Result UUID
+        """
+        try:
+            response = self._call_rpc("result/total-impacts", {"@id": result_id})
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "impacts": response.get("result", [])
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_total_flows(self, result_id: str) -> Dict[str, Any]:
+        """
+        Get total flow results (LCI inventory)
+        
+        Args:
+            result_id: Result UUID
+            
+        Returns:
+            Dict with success status and flow results
+        """
+        try:
+            response = self._call_rpc("result/total-flows", {"@id": result_id})
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "flows": response.get("result", [])
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_impact_contributions(self, result_id: str, impact_id: str) -> Dict[str, Any]:
+        """
+        Get flow contributions to a specific impact category
+        
+        Args:
+            result_id: Result UUID
+            impact_id: Impact category UUID
+            
+        Returns:
+            Dict with success status and contribution data
+        """
+        try:
+            params = {
+                "@id": result_id,
+                "impactCategory": {"@id": impact_id}
+            }
+            response = self._call_rpc("result/impact-contributions", params)
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "contributions": response.get("result", [])
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_flow_contributions(self, result_id: str, flow_id: str) -> Dict[str, Any]:
+        """
+        Get impact contributions of a specific flow
+        
+        Args:
+            result_id: Result UUID
+            flow_id: Flow UUID
+            
+        Returns:
+            Dict with success status and contribution data
+        """
+        try:
+            params = {
+                "@id": result_id,
+                "flow": {"@id": flow_id}
+            }
+            response = self._call_rpc("result/flow-contributions", params)
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "contributions": response.get("result", [])
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_tech_flow_contributions(self, result_id: str) -> Dict[str, Any]:
+        """
+        Get all tech flow (product/process) contributions
+        
+        Args:
+            result_id: Result UUID
+            
+        Returns:
+            Dict with success status and tech flow data
+        """
+        try:
+            response = self._call_rpc("result/total-requirements", {"@id": result_id})
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {
+                "success": True,
+                "tech_flows": response.get("result", [])
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    
+    def dispose_result(self, result_id: str) -> Dict[str, Any]:
+        """
+        Dispose calculation result to free memory
+        
+        Args:
+            result_id: Result UUID
+        """
+        try:
+            response = self._call_rpc("result/dispose", {"@id": result_id})
+            if response.get("error"):
+                return {"success": False, "error": response["error"]}
+            
+            return {"success": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
     

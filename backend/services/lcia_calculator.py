@@ -225,7 +225,8 @@ class LCIACalculator:
     def prepare_lcia_calculation(self, 
                                   session_id: str,
                                   lcia_method_uuid: str,
-                                  flow_mappings: List[Dict] = None) -> Dict[str, Any]:
+                                  flow_mappings: List[Dict] = None,
+                                  auto_match: bool = True) -> Dict[str, Any]:
         """
         准备 LCIA 计算参数
         
@@ -233,6 +234,7 @@ class LCIACalculator:
             session_id: 会话 ID
             lcia_method_uuid: LCIA 方法 UUID
             flow_mappings: 流映射列表 [{action_id, ecoinvent_uuid}, ...]
+            auto_match: 如果没有映射，是否自动执行匹配（默认 True）
             
         Returns:
             准备好的计算参数
@@ -249,6 +251,40 @@ class LCIACalculator:
             method = self.db.lcia_methods.find_one({"uuid": lcia_method_uuid})
             if not method:
                 return {"success": False, "error": "未找到 LCIA 方法"}
+            
+            # 如果没有提供映射且启用自动匹配，执行匹配
+            # 注意：空列表 [] 也视为没有提供映射
+            logger.info(f"检查自动匹配条件: flow_mappings={flow_mappings}, auto_match={auto_match}")
+            
+            if (not flow_mappings or len(flow_mappings) == 0) and auto_match:
+                logger.info(f"触发自动匹配: 未提供流映射，开始执行匹配...")
+                match_result = self.match_all_flows(session_id, use_llm_rewrite=False)
+                
+                logger.info(f"匹配结果: success={match_result.get('success')}, results_count={len(match_result.get('results', []))}")
+                
+                if not match_result.get("success"):
+                    return {
+                        "success": False,
+                        "error": f"自动匹配失败: {match_result.get('error')}"
+                    }
+                
+                # 从匹配结果构建映射
+                flow_mappings = []
+                for result in match_result.get("results", []):
+                    # action_id 在 result 的顶层，不在 original 中
+                    action_id = result.get("action_id")
+                    orig = result.get("original", {})
+                    matches = result.get("matches", [])
+                    if matches and action_id:
+                        best_match = matches[0]
+                        flow_mappings.append({
+                            "action_id": action_id,
+                            "ecoinvent_uuid": best_match.get("uuid")
+                        })
+                
+                logger.info(f"自动匹配完成，生成 {len(flow_mappings)} 个映射")
+            else:
+                logger.info(f"跳过自动匹配: flow_mappings 已提供或 auto_match=False")
             
             # 构建计算参数
             exchanges = []
@@ -269,10 +305,34 @@ class LCIACalculator:
                     ecoinvent_uuid = flow["ecoinvent_match"].get("uuid")
                 
                 if ecoinvent_uuid:
+                    # 获取匹配的流量信息（包括单位）
+                    matched_flow = None
+                    if flow.get("ecoinvent_match"):
+                        matched_flow = flow["ecoinvent_match"]
+                    
+                    # 获取原始值和单位
+                    original_value = flow.get("value", 0)
+                    original_unit = flow.get("unit")
+                    matched_unit = matched_flow.get("unit") if matched_flow else None
+                    
+                    # 如果单位不匹配且兼容，进行转换
+                    final_value = original_value
+                    final_unit = original_unit
+                    
+                    if matched_unit and original_unit != matched_unit:
+                        from .unit_compatibility import are_units_compatible, convert_unit
+                        if are_units_compatible(original_unit, matched_unit):
+                            final_value = convert_unit(original_value, original_unit, matched_unit)
+                            final_unit = matched_unit
+                            logger.info(f"单位转换: {original_value} {original_unit} → {final_value} {matched_unit}")
+                    
                     exchanges.append({
                         "flow_uuid": ecoinvent_uuid,
-                        "amount": flow.get("value", 0),
-                        "unit": flow.get("unit"),
+                        "amount": final_value,
+                        "unit": final_unit,
+                        "original_amount": original_value,
+                        "original_unit": original_unit,
+                        "matched_unit": matched_unit,
                         "is_input": flow.get("category") in [
                             "Raw Material", "Process Energy", "Post-processing Energy",
                             "Feedstock Energy", "Gas", "Cooling Media"
@@ -299,14 +359,14 @@ class LCIACalculator:
     def _create_process_in_openlca(self, 
                                     session_id: str,
                                     exchanges: List[Dict],
-                                    functional_unit: Dict) -> Dict[str, Any]:
+                                    functional_unit) -> Dict[str, Any]:
         """
         在 openLCA 中创建临时 Process
         
         Args:
             session_id: 会话 ID
             exchanges: 交换列表（包含 flow_uuid, amount, unit, is_input）
-            functional_unit: 功能单位信息
+            functional_unit: 功能单位信息（可以是字符串或字典）
             
         Returns:
             创建结果，包含 process_id
@@ -316,11 +376,24 @@ class LCIACalculator:
             
             # 构建 openLCA Process JSON-LD 格式
             process_id = str(uuid.uuid4())
-            fu_desc = functional_unit.get("description", "1 unit")
+            
+            # Handle functional_unit as string or dict
+            if isinstance(functional_unit, str):
+                fu_desc = functional_unit
+                fu_value = 1.0
+            elif isinstance(functional_unit, dict):
+                fu_desc = functional_unit.get("description", "1 unit")
+                fu_value = functional_unit.get("value", 1.0)
+            else:
+                fu_desc = "1 unit"
+                fu_value = 1.0
             
             # 构建 exchanges
             olca_exchanges = []
             for i, ex in enumerate(exchanges):
+                # 获取 Flow 的详细信息以正确设置单位
+                flow_info = self.olca_client.get_flow_info(ex.get("flow_uuid"))
+                
                 olca_exchange = {
                     "@type": "Exchange",
                     "internalId": i + 1,
@@ -329,18 +402,52 @@ class LCIACalculator:
                     "isInput": ex.get("is_input", True),
                     "isQuantitativeReference": False,
                 }
+                
+                # 关键：添加 unit 和 flowProperty（如果可用）
+                if flow_info and flow_info.get("success"):
+                    flow_data = flow_info.get("flow", {})
+                    # 使用第一个 flow property（通常是参考属性）
+                    if flow_data.get("flowProperties"):
+                        flow_prop = flow_data["flowProperties"][0]
+                        olca_exchange["flowProperty"] = {
+                            "@type": "FlowProperty",
+                            "@id": flow_prop.get("flowProperty", {}).get("@id")
+                        }
+                        # 使用参考单位
+                        if flow_prop.get("referenceUnit"):
+                            olca_exchange["unit"] = {
+                                "@type": "Unit",
+                                "@id": flow_prop["referenceUnit"].get("@id")
+                            }
+                
                 olca_exchanges.append(olca_exchange)
             
             # 添加一个参考产品流（功能单位）
-            # 注意：这需要一个已存在的产品流，或者创建一个新的
-            ref_exchange = {
-                "@type": "Exchange",
-                "internalId": len(olca_exchanges) + 1,
-                "amount": functional_unit.get("value", 1),
-                "isInput": False,
-                "isQuantitativeReference": True,
-            }
-            olca_exchanges.append(ref_exchange)
+            # 使用第一个 Product 类型的流作为参考流，如果没有则使用第一个输出流
+            ref_flow_id = None
+            
+            # 尝试从 exchanges 中找到一个合适的参考流
+            for ex in exchanges:
+                if not ex.get("is_input", True):  # 找输出流
+                    ref_flow_id = ex.get("flow_uuid")
+                    break
+            
+            # 如果没有找到输出流，使用一个通用的产品流 UUID（需要在 openLCA 中存在）
+            # 或者跳过参考流，让 openLCA 使用第一个输出流作为参考
+            if ref_flow_id:
+                ref_exchange = {
+                    "@type": "Exchange",
+                    "internalId": len(olca_exchanges) + 1,
+                    "flow": {"@type": "Flow", "@id": ref_flow_id},
+                    "amount": fu_value,
+                    "isInput": False,
+                    "isQuantitativeReference": True,
+                }
+                olca_exchanges.append(ref_exchange)
+            else:
+                # 如果没有输出流，将第一个流设为参考流
+                if olca_exchanges:
+                    olca_exchanges[0]["isQuantitativeReference"] = True
             
             process_data = {
                 "@type": "Process",
@@ -420,8 +527,13 @@ class LCIACalculator:
         self._ensure_initialized()
         
         try:
-            # 准备计算参数
-            prep = self.prepare_lcia_calculation(session_id, lcia_method_uuid, flow_mappings)
+            # 准备计算参数（启用自动匹配）
+            prep = self.prepare_lcia_calculation(
+                session_id=session_id,
+                lcia_method_uuid=lcia_method_uuid,
+                flow_mappings=flow_mappings,
+                auto_match=True  # 显式启用自动匹配
+            )
             if not prep.get("success"):
                 return prep
             
@@ -439,47 +551,151 @@ class LCIACalculator:
                     "error": f"openLCA 连接失败: {olca_test.get('error')}"
                 }
             
-            # 执行 openLCA IPC 计算
-            # 步骤 1: 创建临时 Process（包含所有 exchanges）
+            # 获取 LCI 数据（用于提取 functional_unit）
+            lci_data = self.get_session_lci_data(session_id)
+            if not lci_data.get("success"):
+                return {
+                    "success": False,
+                    "error": f"获取 LCI 数据失败: {lci_data.get('error')}"
+                }
+            
+            # 完整方案：使用 openLCA IPC 执行实际的 LCIA 计算
+            logger.info(f"Starting LCIA calculation with {prep.get('total_mapped')} exchanges")
+            
+            # Step 1: Create a temporary process in openLCA
             process_result = self._create_process_in_openlca(
                 session_id=session_id,
                 exchanges=prep.get("exchanges", []),
-                functional_unit=lci_data.get("functional_unit", {})
+                functional_unit=lci_data.get("scope", {}).get("functional_unit")
             )
             
             if not process_result.get("success"):
-                return process_result
-            
-            process_id = process_result.get("process_id")
-            
-            # 步骤 2: 创建 Product System
-            ps_result = self.olca_client.create_product_system(
-                process_id=process_id,
-                name=f"LCA-LLM Session {session_id[:8]}"
-            )
-            
-            if not ps_result.get("success"):
+                # Fallback to prepared data if process creation fails
+                logger.warning(f"Process creation failed, returning prepared data: {process_result.get('error')}")
                 return {
-                    "success": False,
-                    "error": f"创建 Product System 失败: {ps_result.get('error')}"
+                    "success": True,
+                    "session_id": session_id,
+                    "lcia_method": prep.get("lcia_method"),
+                    "results": {
+                        "status": "ready",
+                        "message": "LCIA calculation data has been prepared",
+                        "exchanges_count": prep.get("total_mapped"),
+                        "total_flows": prep.get("total_flows"),
+                        "exchanges": prep.get("exchanges", []),
+                        "functional_unit": lci_data.get("scope", {}).get("functional_unit"),
+                    },
+                    "note": f"Process creation failed: {process_result.get('error')}. Returning prepared exchanges data."
                 }
             
-            product_system_id = ps_result.get("product_system", {}).get("@id")
+            process_id = process_result.get("process_id")
+            logger.info(f"Process created: {process_id[:30]}...")
             
-            # 步骤 3: 执行 LCIA 计算
+            # Step 2: Execute LCIA calculation
             calc_result = self.olca_client.calculate(
-                product_system_id=product_system_id,
+                target_id=process_id,
+                target_type="Process",
                 impact_method_id=lcia_method_uuid
             )
             
             if not calc_result.get("success"):
                 return {
                     "success": False,
-                    "error": f"LCIA 计算失败: {calc_result.get('error')}"
+                    "error": f"LCIA calculation failed: {calc_result.get('error')}"
                 }
             
-            # 解析计算结果
-            raw_result = calc_result.get("result", {})
+            result_id = calc_result.get("result", {}).get("@id")
+            logger.info(f"Calculation started, result ID: {result_id[:30]}...")
+            
+            # Step 3: Wait for calculation to complete
+            import time
+            max_wait = 30
+            for i in range(max_wait):
+                state_result = self.olca_client.get_result_state(result_id)
+                if state_result.get("success"):
+                    state = state_result.get("state", {})
+                    if state.get("isReady"):
+                        logger.info(f"Calculation complete after {i+1} checks")
+                        break
+                time.sleep(0.5)
+            else:
+                return {
+                    "success": False,
+                    "error": "Calculation timeout after 30 seconds"
+                }
+            
+            # Step 4: Get impact results
+            impacts_result = self.olca_client.get_total_impacts(result_id)
+            
+            if not impacts_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"Failed to get impact results: {impacts_result.get('error')}"
+                }
+            
+            impacts = impacts_result.get("impacts", [])
+            
+            # Step 5: Get major flows (simplified version - only show flow amounts)
+            flows_result = self.olca_client.get_total_flows(result_id)
+            flow_contributions = []
+            
+            if flows_result.get("success"):
+                flows = flows_result.get("flows", [])
+                
+                # Sort by absolute amount and take top 20
+                sorted_flows = sorted(flows, key=lambda x: abs(x.get("amount", 0)), reverse=True)
+                
+                for i, flow_result in enumerate(sorted_flows[:20]):
+                    envi_flow = flow_result.get("enviFlow", {})
+                    flow_info = envi_flow.get("flow", {})
+                    
+                    flow_name = flow_info.get("name", "Unknown")
+                    flow_category = flow_info.get("category", "")
+                    amount = flow_result.get("amount", 0)
+                    unit = flow_info.get("refUnit", "")
+                    is_input = envi_flow.get("isInput", False)
+                    
+                    if abs(amount) > 1e-10:
+                        flow_contributions.append({
+                            "flow_name": flow_name,
+                            "flow_category": flow_category,
+                            "flow_amount": amount,
+                            "flow_unit": unit,
+                            "is_input": is_input
+                        })
+            
+            # Step 6: Format impact results
+            formatted_impacts = []
+            for impact in impacts:
+                impact_cat = impact.get("impactCategory", {})
+                formatted_impacts.append({
+                    "category": impact_cat.get("name", "Unknown"),
+                    "amount": impact.get("amount", 0),
+                    "unit": impact_cat.get("refUnit", ""),
+                    "description": impact_cat.get("description", "")
+                })
+            
+            # Step 6.5: Get tech flow contributions (for foreground flow analysis)
+            tech_flow_contributions = []
+            tech_flows_result = self.olca_client.get_tech_flow_contributions(result_id)
+            
+            if tech_flows_result.get("success"):
+                tech_flows = tech_flows_result.get("tech_flows", [])
+                logger.info(f"Found {len(tech_flows)} tech flows")
+                
+                # Extract tech flow information
+                for tf in tech_flows[:50]:  # Limit to top 50
+                    tech_flow_info = tf.get("techFlow", {})
+                    provider = tech_flow_info.get("provider", {})
+                    flow = tech_flow_info.get("flow", {})
+                    
+                    tech_flow_contributions.append({
+                        "flow_name": flow.get("name", "Unknown"),
+                        "provider_name": provider.get("name", "Unknown"),
+                        "amount": tf.get("amount", 0)
+                    })
+            
+            # Step 7: Dispose result to free memory
+            self.olca_client.dispose_result(result_id)
             
             return {
                 "success": True,
@@ -487,12 +703,17 @@ class LCIACalculator:
                 "lcia_method": prep.get("lcia_method"),
                 "results": {
                     "status": "completed",
-                    "impact_results": self._parse_impact_results(raw_result),
+                    "message": "LCIA calculation completed successfully",
                     "exchanges_count": prep.get("total_mapped"),
-                    "process_id": process_id,
-                    "product_system_id": product_system_id,
-                },
-                "raw_result": raw_result
+                    "total_flows": prep.get("total_flows"),
+                    "functional_unit": lci_data.get("scope", {}).get("functional_unit"),
+                    "impacts": formatted_impacts,
+                    "impact_count": len(formatted_impacts),
+                    "flow_contributions": flow_contributions,
+                    "flow_contributions_count": len(flow_contributions),
+                    "tech_flow_contributions": tech_flow_contributions,
+                    "tech_flow_contributions_count": len(tech_flow_contributions)
+                }
             }
             
         except Exception as e:

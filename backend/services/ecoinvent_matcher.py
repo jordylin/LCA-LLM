@@ -16,18 +16,28 @@ class EcoinventMatcher:
     """Ecoinvent 流匹配器"""
     
     # LLM 重写 Prompt 模板
-    LLM_REWRITE_PROMPT = """Task: Translate a user-extracted flow name into a precise Ecoinvent database search term.
+    LLM_REWRITE_PROMPT = """Task: Translate a user-extracted flow name into a precise search term for the Ecoinvent database.
 
 Flow Name: "{flow_name}"
 Category: {category}
 Material Context: {material_context}
 Process Context: {process_context}
 
-Based on the context, output ONLY the most precise Ecoinvent search term (1-5 words).
+Instructions:
+1. Identify the flow type from Category (Raw Material, Gas, Energy, Waste, etc.)
+2. For Raw Material → use material name (e.g., "316L steel", "titanium alloy", "argon")
+3. For Gas → use gas name (e.g., "argon", "nitrogen", "CO2")
+4. For Energy → use "electricity" or specific energy type
+5. For Recovered Material/Reuse → add "scrap" or "recycled" (e.g., "steel scrap")
+6. For Waste → add "waste" (e.g., "steel waste", "metal waste")
+7. Output ONLY the search term (2-4 words), no explanation
+
 Examples:
-- "Solid Waste" + "316L stainless steel" → "steel scrap"
-- "Process Energy" + "SLM printing" → "electricity, medium voltage"
-- "Water Consumption" + "cooling" → "water, cooling, unspecified"
+- "X2CrNiMo1712 Stainless Steel" + Raw Material → "316L stainless steel"
+- "Argon Gas" + Gas → "argon"
+- "SLM Powder Reuse" + Recovered Material + "316L" → "steel scrap"
+- "Non-recyclable Powder" + Waste + "steel" → "steel waste"
+- "Electricity - SLM" + Process Energy → "electricity"
 
 Search term:"""
     
@@ -87,7 +97,8 @@ Search term:"""
                    flow_type: str = None,
                    top_k: int = 5,
                    context: Dict[str, Any] = None,
-                   use_llm: bool = False) -> List[Dict[str, Any]]:
+                   use_llm: bool = False,
+                   required_unit: str = None) -> List[Dict[str, Any]]:
         """
         匹配单个流到 ecoinvent flows
         
@@ -103,6 +114,7 @@ Search term:"""
             context: 上下文信息，用于增强匹配（可选）
                      包含: note, selected_chunk, functional_unit 等
             use_llm: 是否使用 LLM 辅助重写（默认 False）
+            required_unit: 要求的单位（可选），用于过滤单位不兼容的流量
             
         Returns:
             匹配结果列表，每个包含 ecoinvent flow 信息和相似度分数
@@ -110,13 +122,32 @@ Search term:"""
         self._ensure_initialized()
         
         try:
-            # 阶段 1: 文本搜索获取候选（更精确）
+            # 🆕 阶段 0: 如果启用 LLM，先获取重写后的名称
+            enhanced_query = self._build_enhanced_query(flow_name, category, context, use_llm=use_llm)
+            search_term = enhanced_query if use_llm else flow_name
+            
+            # 🆕 阶段 1: 精确匹配（最高优先级）
+            exact_match = self.db.flows.find_one({"name": {"$regex": f"^{search_term}$", "$options": "i"}})
+            if exact_match:
+                logger.info(f"✅ 精确匹配成功: {search_term} → {exact_match.get('name')}")
+                return [{
+                    "uuid": exact_match.get("uuid"),
+                    "name": exact_match.get("name"),
+                    "category": exact_match.get("category"),
+                    "categories": exact_match.get("categories", []),
+                    "flowType": exact_match.get("flowType"),
+                    "unit": self._get_flow_unit(exact_match),
+                    "similarity": 1.0,  # 精确匹配
+                    "cas": exact_match.get("cas"),
+                }]
+            
+            # 🆕 阶段 2: 关键词匹配（次优先级）
             # 提取关键词进行搜索
-            keywords = flow_name.lower().split()
+            keywords = search_term.lower().split()
             
             # 构建 MongoDB 查询
             text_filter = {"$or": [
-                {"name": {"$regex": flow_name, "$options": "i"}},
+                {"name": {"$regex": search_term, "$options": "i"}},
             ]}
             
             # 添加关键词匹配
@@ -139,11 +170,11 @@ Search term:"""
                 candidates = list(self.db.flows.find(text_filter).limit(100))
             
             if not candidates:
-                logger.warning(f"未找到候选 flows: {flow_name}")
+                logger.warning(f"未找到候选 flows: {search_term}")
                 return []
             
-            # 阶段 2: 语义相似度排序（上下文增强嵌入，可选 LLM 重写）
-            query = self._build_enhanced_query(flow_name, category, context, use_llm=use_llm)
+            # 阶段 3: 语义相似度排序（最后的手段）
+            query = enhanced_query
             logger.debug(f"Enhanced query: {query}")
             query_embedding = self.model.encode(query)
             
@@ -173,6 +204,24 @@ Search term:"""
             
             # 按相似度排序
             results.sort(key=lambda x: x["similarity"], reverse=True)
+            
+            # 如果指定了 required_unit，过滤单位不兼容的结果
+            if required_unit:
+                from .unit_compatibility import are_units_compatible
+                filtered_results = []
+                for result in results:
+                    result_unit = result.get("unit", "")
+                    if are_units_compatible(required_unit, result_unit):
+                        filtered_results.append(result)
+                    else:
+                        logger.debug(f"过滤单位不兼容: {result['name']} ({result_unit}) vs required ({required_unit})")
+                
+                if filtered_results:
+                    logger.info(f"单位过滤: {len(results)} → {len(filtered_results)} (required: {required_unit})")
+                    return filtered_results[:top_k]
+                else:
+                    logger.warning(f"单位过滤后无结果，返回原始结果 (required: {required_unit})")
+                    return results[:top_k]
             
             return results[:top_k]
             
@@ -268,7 +317,18 @@ Search term:"""
             if scope_record:
                 functional_unit = scope_record.get("description", "") or scope_record.get("parameter_name", "")
             
-            logger.info(f"批量匹配 session {session_id}: {len(records)} flows, FU: {functional_unit[:50]}...")
+            # 🔥 从 Raw Material 记录中提取材料信息，增强 functional_unit
+            material_flows = [r for r in records if r.get("category") == "Raw Material"]
+            if material_flows:
+                material_names = [r.get("name", "") for r in material_flows]
+                material_context = ", ".join(material_names)
+                if functional_unit:
+                    functional_unit = f"{functional_unit} (materials: {material_context})"
+                else:
+                    functional_unit = f"Materials: {material_context}"
+                logger.info(f"增强 functional_unit: {functional_unit}")
+            
+            logger.info(f"批量匹配 session {session_id}: {len(records)} flows, FU: {functional_unit[:100]}...")
             
             results = []
             for record in records:
@@ -292,8 +352,9 @@ Search term:"""
                     })
                     continue
                 
-                # 构建上下文信息用于增强匹配
+                # 构建上下文信息用于增强匹配（包含 session_id 用于提取全局材料信息）
                 context = {
+                    "session_id": session_id,  # 🆕 添加 session_id
                     "functional_unit": functional_unit,
                     "note": record.get("note", ""),
                     "selected_chunk": record.get("selected_chunk", {}),
@@ -306,7 +367,8 @@ Search term:"""
                     flow_type=flow_type,
                     top_k=3,
                     context=context,
-                    use_llm=use_llm_rewrite
+                    use_llm=use_llm_rewrite,
+                    required_unit=record.get("unit")  # 传递单位进行过滤
                 )
                 
                 results.append({
@@ -440,6 +502,11 @@ Search term:"""
         # 如果启用 LLM 重写，先尝试用 LLM 重写流名称
         # use_llm 参数直接控制是否使用 LLM 重写（不再依赖 _enable_llm_rewrite）
         if use_llm and context:
+            # 跳过 Product 类型（不需要匹配 Ecoinvent）
+            if category == "Product":
+                logger.info(f"跳过 Product 类型的 LLM 重写: {flow_name}")
+                return flow_name
+            
             rewritten_name = self._llm_rewrite_flow_name_sync(flow_name, category, context)
             if rewritten_name != flow_name:
                 # LLM 重写成功，直接使用重写后的名称
@@ -513,16 +580,14 @@ Search term:"""
         
         # 常见材料关键词模式
         material_patterns = [
-            # 金属合金
-            r'\b(316L|304|Ti-?6Al-?4V|Inconel|AlSi10Mg|17-?4\s?PH)\b',
+            # 金属合金（包括 X2CrNiMo 系列）
+            r'\b(316L|304|X2CrNiMo\d+|Ti-?6Al-?4V|Inconel|AlSi10Mg|17-?4\s?PH)\b',
             # 金属类型
-            r'\b(stainless\s+steel|steel|aluminum|aluminium|titanium|copper|nickel|iron)\b',
+            r'\b(stainless\s+steel|steel|aluminum|aluminium|titanium|copper|nickel|chromium)\b',
             # 塑料
             r'\b(PLA|ABS|PETG|nylon|polyethylene|polypropylene|plastic)\b',
             # 能源
             r'\b(electricity|power|energy|natural\s+gas)\b',
-            # 废料
-            r'\b(scrap|waste|powder|residue)\b',
         ]
         
         import re
@@ -575,27 +640,75 @@ Search term:"""
             parts.append(flow.get("description", "")[:200])
         return " ".join(parts)
     
-    async def _llm_rewrite_flow_name(self, flow_name: str, category: str, context: Dict[str, Any]) -> str:
+    def _llm_rewrite_flow_name(self, flow_name: str, category: str, context: Dict[str, Any]) -> str:
         """
         使用 LLM 将模糊的流名称重写为精确的 Ecoinvent 搜索词
         
         Args:
             flow_name: 原始流名称（如 "Solid Waste"）
             category: LCI 类别（如 "Waste"）
-            context: 上下文信息
+            context: 上下文信息（包括 session_id 用于提取全局材料信息）
             
         Returns:
             重写后的搜索词（如 "steel scrap"）
         """
         try:
+            print(f"[LLM REWRITE] 开始重写: {flow_name}")
+            logger.info(f"LLM 重写开始: {flow_name}")
             # 提取上下文信息
             functional_unit = context.get("functional_unit", "")
             note = context.get("note", "")
             process_name = context.get("process_name", "")
             selected_chunk = context.get("selected_chunk", {})
+            session_id = context.get("session_id")
             
-            # 构建材料上下文
+            # 🆕 从 session 中提取材料信息
+            material_hints = []
+            if session_id:
+                try:
+                    # 确保数据库连接可用
+                    if self.db is None:
+                        from .mongodb_manager import mongodb_manager
+                        self.db = mongodb_manager.get_database()
+                    
+                    # 查询同一 session 的所有 Raw Material 和 Process Material
+                    input_flows = self.db.lci_records.find({
+                        "session_id": session_id,
+                        "category": {"$in": ["Raw Material", "Process Material"]}
+                    })
+                    
+                    # 提取材料信息
+                    for flow in input_flows:
+                        flow_name_input = flow.get("flow_name", "")
+                        note_input = flow.get("note", "")
+                        combined_text = f"{flow_name_input} {note_input}".lower()
+                        
+                        # 提取常见材料类型
+                        if "316l" in combined_text:
+                            material_hints.append("316L stainless steel")
+                        elif "stainless steel" in combined_text or "x2crni" in combined_text:
+                            material_hints.append("stainless steel")
+                        elif "steel" in combined_text and "powder" in combined_text:
+                            material_hints.append("steel powder")
+                        elif "titanium" in combined_text or "ti6al4v" in combined_text or "ti-6al-4v" in combined_text:
+                            material_hints.append("titanium alloy")
+                        elif "aluminum" in combined_text or "aluminium" in combined_text:
+                            material_hints.append("aluminum")
+                    
+                    # 去重
+                    material_hints = list(set(material_hints))
+                    
+                    if material_hints:
+                        print(f"[LLM REWRITE] 从 session 提取到材料信息: {material_hints}")
+                        logger.info(f"Session 材料信息: {material_hints}")
+                    
+                except Exception as e:
+                    logger.warning(f"查询 session 材料信息失败: {e}")
+            
+            # 构建材料上下文（包含提取的材料信息）
             material_context = functional_unit or "unknown"
+            if material_hints:
+                material_context = f"{material_context}; Materials in this process: {', '.join(material_hints)}"
             
             # 构建工艺上下文
             process_context = process_name or note or "unknown"
@@ -639,10 +752,13 @@ Search term:"""
                 rewritten = rewritten.split("</think>")[-1].strip()
             rewritten = rewritten.strip('"\'').strip()
             
+            print(f"[LLM REWRITE] 原始: {flow_name} -> 重写: {rewritten}")
+            
             if rewritten and len(rewritten) < 100:
-                logger.info(f"LLM 重写: '{flow_name}' -> '{rewritten}'")
+                logger.info(f"LLM 重写成功: '{flow_name}' -> '{rewritten}'")
                 return rewritten
             else:
+                logger.warning(f"LLM 重写结果过长或为空，使用原始名称: {flow_name}")
                 return flow_name
                 
         except Exception as e:
@@ -650,26 +766,8 @@ Search term:"""
             return flow_name
     
     def _llm_rewrite_flow_name_sync(self, flow_name: str, category: str, context: Dict[str, Any]) -> str:
-        """同步版本的 LLM 重写方法"""
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 如果已经在异步上下文中，使用线程池
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._llm_rewrite_flow_name(flow_name, category, context)
-                    )
-                    return future.result(timeout=10)
-            else:
-                return loop.run_until_complete(
-                    self._llm_rewrite_flow_name(flow_name, category, context)
-                )
-        except Exception as e:
-            logger.warning(f"同步 LLM 重写失败: {e}")
-            return flow_name
+        """同步版本的 LLM 重写方法（直接调用）"""
+        return self._llm_rewrite_flow_name(flow_name, category, context)
     
     def _get_flow_unit(self, flow: Dict) -> str:
         """获取 flow 的单位"""

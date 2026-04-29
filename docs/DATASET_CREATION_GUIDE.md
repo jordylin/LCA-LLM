@@ -79,13 +79,13 @@ python reverse_engineer_documents.py
 # 批量生成：10个文档/篇（6 Simple + 3 Medium + 1 Complex）
 python scripts/batch_generate_optimized.py \
   --input-dir dataset/lci_literature \
-  --file paper_008.json \
-  --output-dir dataset/documents/phase8
+  --file paper_009.json \
+  --output-dir dataset/documents/phase9
 ```
 
 输出（每篇文献）：
 ```
-dataset/documents/phase8/
+dataset/documents/phase9/
 ├── doc_1_simple_batch_production_record.md
 ├── doc_1_simple_process_certification.md
 ├── doc_1_simple_material_traceability.md
